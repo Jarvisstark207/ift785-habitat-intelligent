@@ -1,0 +1,76 @@
+iteration: 2
+name: "Tests et Endpoints Avances"
+description: "Ajout endpoints filtrage temporel + config alertes avec 4 niveaux de tests"
+
+functionality:
+  weight: 40
+  checks:
+    - name: "Application demarre"
+      points: 8
+      type: "import_test"
+      target: "app"
+    
+    - name: "Endpoints - Historique filtre"
+      points: 12
+      type: "endpoint_check"
+      endpoints:
+        - "/api/data/history"
+        - "/api/stats/hourly"
+    
+    - name: "Endpoints - Config alertes"
+      points: 12
+      type: "endpoint_check"
+      endpoints:
+        - "/api/alerts/config"
+        - "/api/alerts/active"
+    
+    - name: "API retourne donnees valides"
+      points: 8
+      type: "endpoint_check"
+      endpoint: "/api/data"
+
+tests:
+  weight: 30
+  min_coverage: 75
+  min_tests: 36
+  test_structure:
+    unit:
+      min_tests: 20
+      weight: 60
+      required_files:
+        - "tests/unit/test_calculations.py"
+        - "tests/unit/test_alerts.py"
+        - "tests/unit/test_filters.py"
+    
+    integration:
+      min_tests: 8
+      weight: 25
+      required_files:
+        - "tests/integration/test_database.py"
+        - "tests/integration/test_history_queries.py"
+        - "tests/integration/test_alert_config.py"
+    
+    api:
+      min_tests: 6
+      weight: 10
+      required_files:
+        - "tests/api/test_endpoints.py"
+        - "tests/api/test_api_validation.py"
+    
+    fixtures:
+      min_files: 1
+      weight: 5
+      required_files:
+        - "tests/conftest.py"
+
+quality:
+  weight: 20
+  max_flake8_errors: 8
+  max_complexity: 10
+  code_duplication: false
+
+git:
+  weight: 10
+  min_commits_per_person: 8
+  min_contribution_ratio: 35
+  conventional_commits_ratio: 70

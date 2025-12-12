@@ -7,12 +7,28 @@ stages:
 variables:
   PYTHON_VERSION: "3.11"
   MIN_COVERAGE: "70"
+  ITERATION: ""
 
 cache:
   paths:
     - venv/
 
 before_script:
+  - |
+    # Detection automatique iteration depuis nom de branche
+    if [ -n "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" ]; then
+      BRANCH_NAME="$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+    else
+      BRANCH_NAME="$CI_COMMIT_BRANCH"
+    fi
+    
+    ITERATION=$(echo $BRANCH_NAME | grep -oP 'iteration_\K\d+' || echo "1")
+    export ITERATION
+    echo "=========================================="
+    echo "Branche: $BRANCH_NAME"
+    echo "Iteration detectee: $ITERATION"
+    echo "=========================================="
+  
   - python3 -m venv venv
   - source venv/bin/activate
   - pip install --upgrade pip
@@ -78,9 +94,10 @@ evaluate_code:
     - python ci/evaluate.py
   artifacts:
     paths:
-      - evaluation_report.html
-      - evaluation_report.json
-    expire_in: 1 month
+      - evaluation_iteration_${ITERATION}.html
+      - evaluation_iteration_${ITERATION}.json
+      - htmlcov/
+    expire_in: 6 months
   when: always
 
 post_mr_comment:
