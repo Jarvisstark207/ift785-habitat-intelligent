@@ -1,0 +1,38 @@
+iteration: 0
+name: "Code de Base - Procedural"
+description: "Version initiale procedurale fournie aux etudiants (pas d'evaluation)"
+
+# Cette iteration sert de baseline et n'est pas evaluee
+# Elle contient le code procedural que les etudiants doivent refactorer
+
+functionality:
+  weight: 100
+  checks:
+    - name: "Application demarre"
+      points: 50
+      type: "import_test"
+      target: "app"
+    
+    - name: "API /api/data fonctionne"
+      points: 50
+      type: "endpoint_check"
+      endpoint: "/api/data"
+
+tests:
+  weight: 0
+  min_coverage: 0
+  min_tests: 0
+
+quality:
+  weight: 0
+  max_flake8_errors: 1000
+  max_complexity: 100
+
+git:
+  weight: 0
+  min_commits_per_person: 1
+  min_contribution_ratio: 1
+  conventional_commits_ratio: 0
+
+# Note: Cette iteration est principalement pour validation
+# que le code de base fonctionne avant distribution aux etudiants
