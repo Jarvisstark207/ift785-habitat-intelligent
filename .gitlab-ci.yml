@@ -1,0 +1,94 @@
+stages:
+  - setup
+  - test
+  - evaluate
+  - report
+
+variables:
+  PYTHON_VERSION: "3.11"
+  MIN_COVERAGE: "70"
+
+cache:
+  paths:
+    - venv/
+
+before_script:
+  - python3 -m venv venv
+  - source venv/bin/activate
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+
+setup_db:
+  stage: setup
+  script:
+    - python init_db.py
+  artifacts:
+    paths:
+      - habitat_ift785.db
+    expire_in: 1 hour
+
+run_tests:
+  stage: test
+  dependencies:
+    - setup_db
+  script:
+    - pytest tests/ -v --junitxml=report.xml --cov=. --cov-report=xml --cov-report=html --cov-report=term || true
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+      - coverage.xml
+    expire_in: 1 week
+
+lint_code:
+  stage: test
+  script:
+    - flake8 . --max-line-length=100 --exclude=venv,htmlcov --format=json --output-file=flake8_report.json || true
+    - flake8 . --max-line-length=100 --exclude=venv,htmlcov --statistics
+  artifacts:
+    paths:
+      - flake8_report.json
+    expire_in: 1 week
+
+check_complexity:
+  stage: test
+  script:
+    - pip install radon
+    - radon cc . -a -nb --exclude=venv,htmlcov --json > complexity_report.json || true
+    - radon cc . -a -nb --exclude=venv,htmlcov
+  artifacts:
+    paths:
+      - complexity_report.json
+    expire_in: 1 week
+
+evaluate_code:
+  stage: evaluate
+  dependencies:
+    - setup_db
+    - run_tests
+    - lint_code
+    - check_complexity
+  script:
+    - python ci/evaluate.py
+  artifacts:
+    paths:
+      - evaluation_report.html
+      - evaluation_report.json
+    expire_in: 1 month
+  when: always
+
+post_mr_comment:
+  stage: report
+  dependencies:
+    - evaluate_code
+  script:
+    - python ci/post_comment.py
+  only:
+    - merge_requests
+  when: always

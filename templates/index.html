@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitat Intelligent - Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Habitat Intelligent</h1>
+            <p class="subtitle">Monitoring IoT en temps reel</p>
+        </header>
+
+        <!-- Stats globales -->
+        <section class="global-stats">
+            <div class="stat-card">
+                <div class="stat-label">Consommation Totale</div>
+                <div class="stat-value" id="global-consumption">--</div>
+                <div class="stat-unit">watts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Pieces Occupees</div>
+                <div class="stat-value" id="global-occupied">--</div>
+                <div class="stat-unit">pieces</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Temperature Moyenne</div>
+                <div class="stat-value" id="global-temp">--</div>
+                <div class="stat-unit">celsius</div>
+            </div>
+        </section>
+
+        <!-- Alertes -->
+        <section id="alerts-section" class="alerts-section" style="display: none;">
+            <h2>Alertes</h2>
+            <div id="alerts-list"></div>
+        </section>
+
+        <!-- Pieces -->
+        <section class="locations-section">
+            <h2>Par Piece</h2>
+            <div class="locations-grid">
+                <div class="location-card" id="salon-card">
+                    <h3>Salon</h3>
+                    <div class="location-stats">
+                        <div class="stat-row">
+                            <span>Temperature:</span>
+                            <span id="salon-temp">--</span>
+                        </div>
+                        <div class="stat-row minor">
+                            <span>Min/Max:</span>
+                            <span id="salon-temp-range">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Luminosite:</span>
+                            <span id="salon-lux">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Mouvement:</span>
+                            <span id="salon-movement">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Consommation:</span>
+                            <span id="salon-consumption">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="location-card" id="cuisine-card">
+                    <h3>Cuisine</h3>
+                    <div class="location-stats">
+                        <div class="stat-row">
+                            <span>Temperature:</span>
+                            <span id="cuisine-temp">--</span>
+                        </div>
+                        <div class="stat-row minor">
+                            <span>Min/Max:</span>
+                            <span id="cuisine-temp-range">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Luminosite:</span>
+                            <span id="cuisine-lux">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Mouvement:</span>
+                            <span id="cuisine-movement">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Consommation:</span>
+                            <span id="cuisine-consumption">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="location-card" id="chambre-card">
+                    <h3>Chambre</h3>
+                    <div class="location-stats">
+                        <div class="stat-row">
+                            <span>Temperature:</span>
+                            <span id="chambre-temp">--</span>
+                        </div>
+                        <div class="stat-row minor">
+                            <span>Min/Max:</span>
+                            <span id="chambre-temp-range">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Luminosite:</span>
+                            <span id="chambre-lux">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Mouvement:</span>
+                            <span id="chambre-movement">--</span>
+                        </div>
+                        <div class="stat-row">
+                            <span>Consommation:</span>
+                            <span id="chambre-consumption">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Graphiques -->
+        <section class="charts-section">
+            <h2>Graphiques</h2>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Temperature (10 dernieres lectures)</h3>
+                    <canvas id="tempChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Consommation actuelle</h3>
+                    <canvas id="consumptionChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Historique -->
+        <section class="history-section">
+            <h2>Historique (20 dernieres lectures)</h2>
+            <div class="table-container">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Piece</th>
+                            <th>Type</th>
+                            <th>Valeur</th>
+                            <th>Unite</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <tr>
+                            <td colspan="5">Chargement...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""
+Poste commentaire evaluation sur Merge Request GitLab
+"""
+
+import json
+import os
+import requests
+
+
+def post_mr_comment():
+    """Poste evaluation sur MR"""
+    
+    # Variables GitLab CI
+    gitlab_url = os.getenv('CI_SERVER_URL', 'https://depot.dinf.usherbrooke.ca')
+    project_id = os.getenv('CI_PROJECT_ID')
+    mr_iid = os.getenv('CI_MERGE_REQUEST_IID')
+    token = os.getenv('GITLAB_TOKEN')
+    
+    if not all([project_id, mr_iid, token]):
+        print("⚠ Variables GitLab manquantes, skip commentaire MR")
+        return
+    
+    # Lire rapport
+    try:
+        with open('evaluation_report.json', 'r') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        print("✗ Rapport evaluation introuvable")
+        return
+    
+    # Formatter commentaire
+    score = data['score']
+    emoji = '✅' if score >= 70 else '⚠️' if score >= 50 else '❌'
+    
+    comment = f"""## {emoji} Evaluation Automatique
+
+**Note Finale: {score:.1f}/100**
+
+### Resultats par Critere
+
+"""
+    
+    for name, crit in data['criteria'].items():
+        percentage = (crit['score'] / crit['weight']) * 100 if crit['weight'] > 0 else 0
+        bar = '█' * int(percentage / 10) + '░' * (10 - int(percentage / 10))
+        comment += f"- **{name.capitalize()}**: {crit['score']:.1f}/{crit['weight']} {bar}\n"
+    
+    comment += "\n### Details\n\n"
+    
+    for detail in data['details'][:10]:
+        comment += f"- {detail}\n"
+    
+    if len(data['details']) > 10:
+        comment += f"\n*... et {len(data['details']) - 10} autres details (voir rapport HTML)*\n"
+    
+    comment += f"\n📊 [Rapport HTML complet disponible dans les artifacts]({gitlab_url}/{os.getenv('CI_PROJECT_PATH')}/-/jobs/{os.getenv('CI_JOB_ID')}/artifacts/browse)"
+    
+    # Poster via API
+    api_url = f"{gitlab_url}/api/v4/projects/{project_id}/merge_requests/{mr_iid}/notes"
+    headers = {'PRIVATE-TOKEN': token}
+    payload = {'body': comment}
+    
+    try:
+        response = requests.post(api_url, headers=headers, json=payload)
+        if response.status_code == 201:
+            print("✓ Commentaire poste sur MR")
+        else:
+            print(f"✗ Erreur API GitLab: {response.status_code}")
+    except Exception as e:
+        print(f"✗ Erreur posting: {e}")
+
+
+if __name__ == '__main__':
+    post_mr_comment()
