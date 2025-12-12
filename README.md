@@ -101,4 +101,5 @@ Application disponible sur : http://localhost:8000
 - `ift785_client.py` : Client MQTT (fourni)
 - `templates/index.html` : Interface web
 - `static/` : CSS et JavaScript
+- `ci/` : Evalaution CI/CD
 - `tests/` : Tests unitaires (a venir)
