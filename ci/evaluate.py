@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Script d'evaluation automatique avec configuration par iteration
 """
@@ -19,6 +20,38 @@ class CodeEvaluator:
         self.max_score = 100
         self.details = []
         self.contributors = {}
+        self.excluded_files = self._load_excluded_files()
+        
+    def _load_excluded_files(self):
+        """Charge liste fichiers a exclure de l'evaluation"""
+        excluded = set()
+        exclude_file = '.evaluation_exclude'
+        
+        if not os.path.exists(exclude_file):
+            return excluded
+        
+        with open(exclude_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    excluded.add(line.rstrip('/'))
+        
+        return excluded
+    
+    def _should_exclude_file(self, filepath):
+        """Verifie si un fichier doit etre exclu"""
+        filepath_str = str(filepath)
+        
+        # Exclusions systeme
+        if any(x in filepath_str for x in ['venv', 'test', '__pycache__', '.git']):
+            return True
+        
+        # Exclusions configurees
+        for excluded in self.excluded_files:
+            if excluded in filepath_str or filepath_str.startswith(excluded):
+                return True
+        
+        return False
         
     def load_iteration_config(self):
         """Charge config iteration"""
@@ -411,7 +444,7 @@ class CodeEvaluator:
         """Trouve toutes les classes dans le code"""
         classes = []
         for py_file in Path('.').rglob('*.py'):
-            if 'venv' in str(py_file) or 'test' in str(py_file):
+            if self._should_exclude_file(py_file):
                 continue
             try:
                 with open(py_file, 'r') as f:

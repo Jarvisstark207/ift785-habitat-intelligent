@@ -1,0 +1,38 @@
+# Fichiers exclus de l'evaluation automatique
+# Ces fichiers sont fournis aux etudiants et ne doivent pas impacter leur note
+
+# Client MQTT fourni
+ift785_client.py
+
+# Script initialisation BD fourni
+init_db.py
+
+# Templates HTML fournis
+templates/
+templates/*
+
+# Assets statiques fournis
+static/
+static/*
+
+# Infrastructure CI/CD
+ci/
+ci/*
+.gitlab-ci.yml
+
+# Configuration projet
+Makefile
+requirements.txt
+README.md
+.evaluation_exclude
+
+# Fichiers systeme
+.git/
+.gitignore
+venv/
+__pycache__/
+*.pyc
+*.db
+htmlcov/
+.coverage
+.pytest_cache/

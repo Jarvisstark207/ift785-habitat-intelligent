@@ -67,8 +67,8 @@ run_tests:
 lint_code:
   stage: test
   script:
-    - flake8 . --max-line-length=100 --exclude=venv,htmlcov --format=json --output-file=flake8_report.json || true
-    - flake8 . --max-line-length=100 --exclude=venv,htmlcov --statistics
+    - flake8 . --max-line-length=100 --exclude=venv,htmlcov,ci,templates,static,ift785_client.py,init_db.py --format=json --output-file=flake8_report.json || true
+    - flake8 . --max-line-length=100 --exclude=venv,htmlcov,ci,templates,static,ift785_client.py,init_db.py --statistics
   artifacts:
     paths:
       - flake8_report.json
@@ -78,8 +78,8 @@ check_complexity:
   stage: test
   script:
     - pip install radon
-    - radon cc . -a -nb --exclude=venv,htmlcov --json > complexity_report.json || true
-    - radon cc . -a -nb --exclude=venv,htmlcov
+    - radon cc . -a -nb --exclude=venv,htmlcov,ci,templates,static,ift785_client.py,init_db.py --json > complexity_report.json || true
+    - radon cc . -a -nb --exclude=venv,htmlcov,ci,templates,static,ift785_client.py,init_db.py
   artifacts:
     paths:
       - complexity_report.json

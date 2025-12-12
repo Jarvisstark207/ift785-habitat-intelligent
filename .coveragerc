@@ -1,0 +1,27 @@
+[run]
+omit =
+    # Fichiers fournis (exclus du coverage)
+    ift785_client.py
+    init_db.py
+    ci/*
+    templates/*
+    static/*
+    
+    # Fichiers systeme
+    venv/*
+    */venv/*
+    tests/*
+    */tests/*
+    __pycache__/*
+    */__pycache__/*
+    setup.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
