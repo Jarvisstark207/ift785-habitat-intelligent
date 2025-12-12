@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Application Habitat Intelligent - Simple et Procedurale
+Application Habitat Intelligent - Simple et Procedurale pour la premiere itération IFT785
 Utilise ift785_client.py pour recevoir donnees MQTT
 """
 
