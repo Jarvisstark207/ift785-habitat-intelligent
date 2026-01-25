@@ -15,6 +15,9 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 import uvicorn
 from ift785_client import HabitatClient
+from domain.models.sensor_reading import SensorReading
+
+
 
 # ============================================================================
 # CONFIGURATION
@@ -51,28 +54,21 @@ def get_db_connection():
 # FONCTION INSERTION
 # ============================================================================
 
-def insert_sensor_data(sensor_data):
-    """Insert sensor data dans la BD"""
+def insert_sensor_data(reading: SensorReading):
+    """Insert sensor reading dans la BD"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         INSERT INTO sensor_readings 
         (sensor_id, location, type, value, unit, timestamp)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        sensor_data.sensor_id,
-        sensor_data.location,
-        sensor_data.type,
-        sensor_data.value,
-        sensor_data.unit,
-        sensor_data.timestamp
-    ))
-    
+    """, reading.to_db_tuple())
+
     conn.commit()
     conn.close()
-    
-    print(f"Insere: {sensor_data.location}/{sensor_data.type} = {sensor_data.value}")
+
+    print(f"Insere: {reading.location}/{reading.type} = {reading.value}")
 
 # ============================================================================
 # THREAD MQTT
@@ -92,7 +88,8 @@ def mqtt_listener_thread():
     while True:
         try:
             sensor_data = client.get_next_sensor_data()
-            insert_sensor_data(sensor_data)
+            reading = SensorReading.from_sensor_data(sensor_data)
+            insert_sensor_data(reading)
         except Exception as e:
             print(f"Erreur collecte: {e}")
             time.sleep(1)
