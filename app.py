@@ -19,14 +19,24 @@ from ift785_client import HabitatClient
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
+from config import (
+    DB_NAME,
+    LOCATIONS,
+    ALERT_TEMP_MIN,
+    ALERT_TEMP_MAX,
+    ALERT_CONSUMPTION_MAX,
+    MOVEMENT_TIMEOUT_SEC,
+)
 
+
+"""
 DB_NAME = "habitat_ift785.db"
 LOCATIONS = ["salon", "cuisine", "chambre"]
 ALERT_TEMP_MIN = 18.0
 ALERT_TEMP_MAX = 25.0
 ALERT_CONSUMPTION_MAX = 2000.0
 MOVEMENT_TIMEOUT_SEC = 300
-
+"""
 # ============================================================================
 # CONNEXION BASE DE DONNEES
 # ============================================================================
