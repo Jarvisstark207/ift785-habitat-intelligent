@@ -12,4 +12,4 @@ class Sensor:
 
     def matches_type(self, sensor_type: str) -> bool:
         """Vérifie si le capteur est du type spécifié"""
-        return self.type == s
+        return self.type == sensor_type
