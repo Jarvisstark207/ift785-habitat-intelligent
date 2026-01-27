@@ -64,19 +64,19 @@ def start_sensor_listener(repository: SQLiteSensorRepository) -> None:
     print("Thread collecte demarre")
 
 
-if __name__ == "__main__":
+def main() -> None:
     print("=" * 70)
     print("HABITAT INTELLIGENT - DEMARRAGE")
     print("=" * 70)
 
-    # Créer application et récupérer dépendances
     app, repository = create_app()
-
-    # Démarrer thread MQTT
     start_sensor_listener(repository)
 
     print("Serveur web: http://localhost:8000")
     print("=" * 70)
 
-    # Démarrer FastAPI
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
+
+
+if __name__ == "__main__":
+    main()
