@@ -1,13 +1,12 @@
-#!/usr/bin/env python3
-import sqlite3
 import os
+import sqlite3
 
 DB_NAME = "habitat_ift785.db"
 
 
 def init_database():
     if os.path.exists(DB_NAME):
-        print(f"Base existante detectee, suppression...")
+        print("Base existante detectee, suppression...")
         os.remove(DB_NAME)
 
     conn = sqlite3.connect(DB_NAME)
@@ -27,28 +26,28 @@ def init_database():
             timestamp TEXT NOT NULL,
             received_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-    """
+        """
     )
 
     cursor.execute(
         """
-        CREATE INDEX idx_location_type 
+        CREATE INDEX idx_location_type
         ON sensor_readings(location, type)
-    """
+        """
     )
 
     cursor.execute(
         """
-        CREATE INDEX idx_timestamp 
+        CREATE INDEX idx_timestamp
         ON sensor_readings(timestamp DESC)
-    """
+        """
     )
 
     cursor.execute(
         """
-        CREATE INDEX idx_type 
+        CREATE INDEX idx_type
         ON sensor_readings(type)
-    """
+        """
     )
 
     conn.commit()

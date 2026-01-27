@@ -9,7 +9,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
@@ -27,7 +27,6 @@ from config import (
     ALERT_TEMP_MIN,
     ALERT_TEMP_MAX,
     ALERT_CONSUMPTION_MAX,
-    MOVEMENT_TIMEOUT_SEC,
 )
 
 
