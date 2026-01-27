@@ -51,7 +51,7 @@ run:
 	@echo "$(YELLOW)========================================$(NC)"
 	@echo "$(YELLOW)Demarrage de l'application...$(NC)"
 	@echo "$(YELLOW)========================================$(NC)"
-	@$(PYTHON) app.py
+	@$(PYTHON) -m app.main
 
 test:
 	@echo "$(MAGENTA)Execution des tests...$(NC)"
