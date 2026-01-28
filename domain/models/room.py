@@ -7,7 +7,7 @@ from typing import List
 class Room:
     """Représente une pièce de l'habitat"""
     name: str
-    devices: List['Device'] = field(default_factory=list)
+    devices: List[Device] = field(default_factory=list)
 
     def add_device(self, device: 'Device') -> None:
         """Ajoute un appareil à la pièce"""
