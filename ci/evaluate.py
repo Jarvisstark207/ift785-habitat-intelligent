@@ -21,6 +21,15 @@ class CodeEvaluator:
         self.details = []
         self.contributors = {}
         self.excluded_files = self._load_excluded_files()
+        # Auteurs à exclure de l'évaluation (prof)
+        self.excluded_authors = {
+            'ngankam',
+            'kenh1601',
+            'hubert.ngankam@gmail.com',
+            'hubert.kenfack.ngankam@usherbrooke.ca',
+            'Traore Mamoudou',
+            'mamoudoudiakatraore@gmail.com'
+        }
         
     def _load_excluded_files(self):
         """Charge liste fichiers a exclure de l'evaluation"""
@@ -62,7 +71,7 @@ class CodeEvaluator:
         
         with open(config_file, 'r') as f:
             return yaml.safe_load(f)
-    
+
     def get_contributors(self):
         """Extrait contributeurs et statistiques"""
         result = subprocess.run(
@@ -70,11 +79,16 @@ class CodeEvaluator:
             capture_output=True,
             text=True
         )
-        
+
         contributors = {}
         for line in result.stdout.strip().split('\n'):
             if '|' in line and line.strip():
                 name, email = line.split('|')
+
+                # NOUVEAU: Ignorer les auteurs exclus (prof)
+                if name in self.excluded_authors or email in self.excluded_authors:
+                    continue
+
                 if name not in contributors:
                     contributors[name] = {'email': email, 'commits': 0, 'lines_added': 0}
                 contributors[name]['commits'] += 1
@@ -90,6 +104,9 @@ class CodeEvaluator:
         for line in result.stdout.split('\n'):
             if line and '\t' not in line:
                 current_author = line
+                # NOUVEAU: Ignorer si auteur exclu
+                if current_author in self.excluded_authors:
+                    current_author = None
             elif '\t' in line and current_author:
                 parts = line.split('\t')
                 if len(parts) >= 2 and parts[0].isdigit():
