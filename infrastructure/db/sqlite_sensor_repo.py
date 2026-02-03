@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
 from domain.models.sensor_reading import SensorReading
 from domain.ports.sensor_reading_repo import SensorReadingRepository
@@ -218,3 +218,43 @@ class SQLiteSensorRepository(SensorReadingRepository):
 
         conn.close()
         return round(sum(temps) / len(temps), 1) if temps else None
+
+    def find_with_filters(
+            self,
+            location: Optional[str] = None,
+            sensor_type: Optional[str] = None,
+            start_date: Optional[str] = None,
+            end_date: Optional[str] = None,
+            limit: int = 100
+    ) -> List[dict]:
+        """Trouve lectures avec filtres multiples"""
+        conn = SQLiteConnection.get_connection()
+        cursor = conn.cursor()
+
+        query = "SELECT * FROM sensor_readings WHERE 1=1"
+        params = []
+
+        if location:
+            query += " AND location = ?"
+            params.append(location)
+
+        if sensor_type:
+            query += " AND type = ?"
+            params.append(sensor_type)
+
+        if start_date:
+            query += " AND timestamp >= ?"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND timestamp <= ?"
+            params.append(end_date)
+
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params.append(limit)
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        conn.close()
+
+        return [dict(row) for row in rows]

@@ -2,6 +2,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List
 
+from domain.models.device import Device
+
 
 @dataclass
 class Room:
