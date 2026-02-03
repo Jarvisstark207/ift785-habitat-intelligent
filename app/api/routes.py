@@ -49,11 +49,11 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
 
     @app.get("/api/data/history")
     def get_history(
-            location: Optional[str] = Query(None, description="Filter by location"),
-            sensor_type: Optional[str] = Query(None, description="Filter by sensor type"),
-            start_date: Optional[str] = Query(None, description="Start date (ISO)"),
-            end_date: Optional[str] = Query(None, description="End date (ISO)"),
-            limit: int = Query(100, ge=1, le=1000, description="Max results")
+        location: Optional[str] = Query(None, description="Filter by location"),
+        sensor_type: Optional[str] = Query(None, description="Filter by sensor type"),
+        start_date: Optional[str] = Query(None, description="Start date (ISO)"),
+        end_date: Optional[str] = Query(None, description="End date (ISO)"),
+        limit: int = Query(100, ge=1, le=1000, description="Max results")
     ):
         """Récupère l'historique filtré"""
         return _history.get_filtered_history(
@@ -66,9 +66,9 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
 
     @app.get("/api/stats/hourly")
     def get_hourly_stats(
-            location: Optional[str] = Query(None),
-            sensor_type: str = Query("temperature"),
-            date: Optional[str] = Query(None, description="Date (YYYY-MM-DD)")
+        location: Optional[str] = Query(None),
+        sensor_type: str = Query("temperature"),
+        date: Optional[str] = Query(None, description="Date (YYYY-MM-DD)")
     ):
         """Statistiques horaires"""
         return _stats_advanced.calculate_hourly_stats(
