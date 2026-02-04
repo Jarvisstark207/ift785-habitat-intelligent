@@ -21,7 +21,7 @@ class CodeEvaluator:
         self.details = []
         self.contributors = {}
         self.excluded_files = self._load_excluded_files()
-        # Auteurs à exclure de l'évaluation (prof)
+        # Auteurs à exclure de l'évaluation (demander par le professeur)
         self.excluded_authors = {
             "ngankam",
             "kenh1601",
@@ -406,7 +406,7 @@ class CodeEvaluator:
             )
             lines = result.stdout.split("\n")
             for line in lines:
-                if "test" in line.lower() and "selected" in line.lower():
+                if "test" in line.lower() and ("selected" in line.lower() or "collected" in line.lower()):
                     import re
 
                     match = re.search(r"(\d+)\s+test", line)
