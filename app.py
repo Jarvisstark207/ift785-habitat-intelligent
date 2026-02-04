@@ -13,6 +13,7 @@ from application.services.stats_service import StatsService
 from application.services.history_service import HistoryService
 from application.services.stats_advanced_service import StatsAdvancedService
 from application.use_cases.ingest_sensor_reading import IngestSensorReading
+from domain.models.alert_config import AlertConfigUpdate
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
 from infrastructure.mqtt.habitat_client_source import HabitatClientSource
 from infrastructure.mqtt.listener import SensorListener
@@ -69,15 +70,28 @@ def get_hourly_stats(
 
 @app.get("/api/alerts/config")
 def get_alert_config():
-    return {
-        "temperature": {"min": ALERT_TEMP_MIN, "max": ALERT_TEMP_MAX},
-        "consumption": {"max": ALERT_CONSUMPTION_MAX}
-    }
-
+    return _alerts.get_config()
 
 @app.post("/api/alerts/config")
-def update_alert_config():
-    return {"status": "ok", "message": "Config updated"}
+def update_alert_config(config: AlertConfigUpdate):
+    updated_config = {}
+    
+    if config.temperature:
+        if config.temperature.min is not None:
+            updated_config['temp_min'] = config.temperature.min
+        if config.temperature.max is not None:
+            updated_config['temp_max'] = config.temperature.max
+    
+    if config.consumption and config.consumption.max is not None:
+        updated_config['consumption_max'] = config.consumption.max
+    
+    result = _alerts.update_config(**updated_config)
+    
+    return {
+        "status": "ok",
+        "message": "Config updated",
+        "new_config": result
+    }
 
 
 @app.get("/api/alerts/active")
