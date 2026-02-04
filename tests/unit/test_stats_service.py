@@ -1,5 +1,6 @@
 """Tests unitaires pour StatsService"""
 
+
 class TestStatsService:
     """Tests pour le service de statistiques"""
 

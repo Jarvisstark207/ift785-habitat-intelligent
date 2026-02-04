@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+
 class TestStatsAdvancedService:
     """Tests pour le service de statistiques avancées"""
 

@@ -1,5 +1,6 @@
 """Tests unitaires pour HistoryService"""
 
+
 class TestHistoryService:
     """Tests pour le service d'historique"""
 
