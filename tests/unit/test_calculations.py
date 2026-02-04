@@ -1,7 +1,5 @@
 """Tests unitaires pour les calculs statistiques"""
 
-import pytest
-from unittest.mock import Mock
 from application.services.stats_service import StatsService
 from application.services.stats_advanced_service import StatsAdvancedService
 

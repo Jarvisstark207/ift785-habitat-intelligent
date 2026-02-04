@@ -139,8 +139,6 @@ def populated_db(temp_db):
 
     locations = ["salon", "cuisine", "chambre"]
 
-    sensor_types = ["temperature", "lumiere", "consommation", "mouvement"]
-
     for location in locations:
 
         for i in range(20):

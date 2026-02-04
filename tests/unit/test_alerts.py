@@ -1,6 +1,5 @@
 """Tests unitaires pour le système d'alertes"""
 
-import pytest
 from unittest.mock import Mock
 from application.services.alert_service import AlertService
 from application.services.stats_service import StatsService

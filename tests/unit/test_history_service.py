@@ -1,12 +1,5 @@
 """Tests unitaires pour HistoryService"""
 
-import pytest
-
-from unittest.mock import Mock
-
-from application.services.history_service import HistoryService
-
-
 class TestHistoryService:
     """Tests pour le service d'historique"""
 

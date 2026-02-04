@@ -1,6 +1,6 @@
 """Service pour gérer l'historique des données"""
 
-from typing import Optional, List
+from typing import Optional
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
 
 

@@ -1,12 +1,5 @@
 """Tests unitaires pour StatsService"""
 
-import pytest
-
-from unittest.mock import Mock
-
-from application.services.stats_service import StatsService
-
-
 class TestStatsService:
     """Tests pour le service de statistiques"""
 

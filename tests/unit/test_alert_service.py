@@ -1,7 +1,5 @@
 """Tests unitaires pour AlertService"""
 
-import pytest
-
 from unittest.mock import Mock
 
 from application.services.alert_service import AlertService

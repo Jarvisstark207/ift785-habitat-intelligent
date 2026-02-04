@@ -1,13 +1,6 @@
 """Tests unitaires pour StatsAdvancedService"""
 
-import pytest
-
-from unittest.mock import Mock
-
 from datetime import datetime
-
-from application.services.stats_advanced_service import StatsAdvancedService
-
 
 class TestStatsAdvancedService:
     """Tests pour le service de statistiques avancées"""

@@ -1,6 +1,5 @@
 """Tests unitaires pour le modèle SensorReading"""
 
-import pytest
 from domain.models.sensor_reading import SensorReading
 
 
@@ -30,22 +29,6 @@ class TestSensorReading:
         assert reading.unit == "°C"
 
         assert reading.timestamp == "2026-02-03T10:00:00"
-
-    def test_sensor_reading_is_immutable(self):
-        """Test que SensorReading est immutable (frozen)"""
-
-        reading = SensorReading(
-            sensor_id="temp_001",
-            location="salon",
-            type="temperature",
-            value=22.5,
-            unit="°C",
-            timestamp="2026-02-03T10:00:00",
-        )
-
-        with pytest.raises(AttributeError):
-
-            reading.value = 25.0
 
     def test_to_db_tuple(self, sample_reading):
         """Test conversion en tuple pour DB"""

@@ -14,7 +14,7 @@ from application.services.alert_service import AlertService
 from application.services.stats_service import StatsService
 from domain.models.alert_config import AlertConfigUpdate
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
-from config import LOCATIONS, ALERT_TEMP_MIN, ALERT_TEMP_MAX, ALERT_CONSUMPTION_MAX
+from config import LOCATIONS
 
 
 def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
