@@ -1,4 +1,5 @@
 """Tests d'intégration pour les requêtes d'historique"""
+
 import pytest
 from datetime import datetime, timedelta
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
@@ -13,8 +14,8 @@ class TestHistoryQueriesIntegration:
     @pytest.fixture(autouse=True)
     def setup_services(self, temp_db, monkeypatch):
         """Configure services avec DB temporaire"""
-        monkeypatch.setattr('config.DB_NAME', temp_db)
-        monkeypatch.setattr('infrastructure.db.sqlite_connection.DB_NAME', temp_db)
+        monkeypatch.setattr("config.DB_NAME", temp_db)
+        monkeypatch.setattr("infrastructure.db.sqlite_connection.DB_NAME", temp_db)
 
         self.repo = SQLiteSensorRepository()
         self.history_service = HistoryService(self.repo)
@@ -41,7 +42,7 @@ class TestHistoryQueriesIntegration:
                         type=sensor_type,
                         value=20.0 + i * 0.5 if sensor_type == "temperature" else 100.0 + i * 10,
                         unit="°C" if sensor_type == "temperature" else "unit",
-                        timestamp=timestamp
+                        timestamp=timestamp,
                     )
                     self.repo.save(reading)
 
@@ -49,17 +50,17 @@ class TestHistoryQueriesIntegration:
         """Test requête historique par location"""
         result = self.history_service.get_filtered_history(location="salon")
 
-        assert result['count'] > 0
-        for item in result['data']:
-            assert item['location'] == "salon"
+        assert result["count"] > 0
+        for item in result["data"]:
+            assert item["location"] == "salon"
 
     def test_query_history_by_sensor_type(self):
         """Test requête historique par type de capteur"""
         result = self.history_service.get_filtered_history(sensor_type="temperature")
 
-        assert result['count'] > 0
-        for item in result['data']:
-            assert item['type'] == "temperature"
+        assert result["count"] > 0
+        for item in result["data"]:
+            assert item["type"] == "temperature"
 
     def test_query_history_by_date_range(self):
         base_time = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
@@ -67,19 +68,16 @@ class TestHistoryQueriesIntegration:
         start = (base_time - timedelta(hours=12)).isoformat()
         end = base_time.isoformat()
 
-        result = self.history_service.get_filtered_history(
-            start_date=start,
-            end_date=end
-        )
+        result = self.history_service.get_filtered_history(start_date=start, end_date=end)
 
-        assert result['count'] > 0
+        assert result["count"] > 0
 
     def test_query_history_with_limit(self):
         """Test requête historique avec limite"""
         result = self.history_service.get_filtered_history(limit=10)
 
-        assert result['count'] <= 10
-        assert len(result['data']) <= 10
+        assert result["count"] <= 10
+        assert len(result["data"]) <= 10
 
     def test_query_history_combined_filters(self):
         """Test requête avec filtres combinés"""
@@ -87,52 +85,44 @@ class TestHistoryQueriesIntegration:
         start = (now - timedelta(hours=6)).isoformat()
 
         result = self.history_service.get_filtered_history(
-            location="salon",
-            sensor_type="temperature",
-            start_date=start,
-            limit=5
+            location="salon", sensor_type="temperature", start_date=start, limit=5
         )
 
-        assert result['count'] <= 5
-        for item in result['data']:
-            assert item['location'] == "salon"
-            assert item['type'] == "temperature"
+        assert result["count"] <= 5
+        for item in result["data"]:
+            assert item["location"] == "salon"
+            assert item["type"] == "temperature"
 
     def test_query_hourly_stats_full_day(self):
         """Test stats horaires pour journée complète"""
         today = datetime.now().strftime("%Y-%m-%d")
 
         result = self.stats_advanced_service.calculate_hourly_stats(
-            location="salon",
-            sensor_type="temperature",
-            date=today
+            location="salon", sensor_type="temperature", date=today
         )
 
-        assert 'hourly_stats' in result
-        assert len(result['hourly_stats']) > 0
+        assert "hourly_stats" in result
+        assert len(result["hourly_stats"]) > 0
 
     def test_query_hourly_stats_specific_location(self):
         """Test stats horaires pour location spécifique"""
         today = datetime.now().strftime("%Y-%m-%d")
 
         result = self.stats_advanced_service.calculate_hourly_stats(
-            location="cuisine",
-            sensor_type="temperature",
-            date=today
+            location="cuisine", sensor_type="temperature", date=today
         )
 
-        assert result['location'] == "cuisine"
-        assert result['sensor_type'] == "temperature"
+        assert result["location"] == "cuisine"
+        assert result["sensor_type"] == "temperature"
 
     def test_query_empty_results(self):
         """Test requête retournant résultats vides"""
         result = self.history_service.get_filtered_history(
-            location="inexistant",
-            sensor_type="temperature"
+            location="inexistant", sensor_type="temperature"
         )
 
-        assert result['count'] == 0
-        assert len(result['data']) == 0
+        assert result["count"] == 0
+        assert len(result["data"]) == 0
 
     def test_query_performance_large_dataset(self):
         """Test performance sur grand dataset"""
@@ -144,17 +134,15 @@ class TestHistoryQueriesIntegration:
 
         # Devrait prendre moins d'une seconde
         assert elapsed < 1.0
-        assert result['count'] > 0
+        assert result["count"] > 0
 
     def test_query_history_order_by_timestamp(self):
         """Test que l'historique est trié par timestamp DESC"""
         result = self.history_service.get_filtered_history(
-            location="salon",
-            sensor_type="temperature",
-            limit=10
+            location="salon", sensor_type="temperature", limit=10
         )
 
-        if len(result['data']) > 1:
-            timestamps = [item['timestamp'] for item in result['data']]
+        if len(result["data"]) > 1:
+            timestamps = [item["timestamp"] for item in result["data"]]
             # Vérifier ordre décroissant
             assert timestamps == sorted(timestamps, reverse=True)

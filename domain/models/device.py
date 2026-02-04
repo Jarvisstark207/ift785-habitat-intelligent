@@ -8,6 +8,7 @@ from domain.models.sensor import Sensor
 @dataclass
 class Device:
     """Représente un appareil IoT avec ses capteurs"""
+
     device_id: str
     room_name: str
     sensors: List[Sensor] = field(default_factory=list)

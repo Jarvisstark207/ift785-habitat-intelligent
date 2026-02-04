@@ -5,128 +5,91 @@ import pytest
 from unittest.mock import Mock
 
 from application.services.history_service import HistoryService
- 
- 
+
+
 class TestHistoryService:
+    """Tests pour le service d'historique"""
 
-     """Tests pour le service d'historique"""
+    def test_get_filtered_history_calls_repo_with_all_params(self, history_service, mock_repo):
+        """Test que get_filtered_history passe tous les paramètres au repo"""
 
-     def test_get_filtered_history_calls_repo_with_all_params(self, history_service, mock_repo):
+        mock_repo.find_with_filters.return_value = []
 
-         """Test que get_filtered_history passe tous les paramètres au repo"""
+        history_service.get_filtered_history(
+            location="salon",
+            sensor_type="temperature",
+            start_date="2026-01-01T00:00:00",
+            end_date="2026-01-31T23:59:59",
+            limit=50,
+        )
 
-         mock_repo.find_with_filters.return_value = []
+        mock_repo.find_with_filters.assert_called_once_with(
+            location="salon",
+            sensor_type="temperature",
+            start_date="2026-01-01T00:00:00",
+            end_date="2026-01-31T23:59:59",
+            limit=50,
+        )
 
-         history_service.get_filtered_history(
+    def test_get_filtered_history_returns_correct_structure(self, history_service, mock_repo):
+        """Test structure de retour de get_filtered_history"""
 
-             location="salon",
+        mock_data = [
+            {"sensor_id": "t1", "location": "salon", "value": 22.0},
+            {"sensor_id": "t2", "location": "salon", "value": 22.5},
+        ]
 
-             sensor_type="temperature",
+        mock_repo.find_with_filters.return_value = mock_data
 
-             start_date="2026-01-01T00:00:00",
+        result = history_service.get_filtered_history(location="salon")
 
-             end_date="2026-01-31T23:59:59",
+        assert "count" in result
 
-             limit=50
+        assert "filters" in result
 
-         )
+        assert "data" in result
 
-         mock_repo.find_with_filters.assert_called_once_with(
+        assert result["count"] == 2
 
-             location="salon",
+        assert result["data"] == mock_data
 
-             sensor_type="temperature",
+    def test_get_filtered_history_with_no_filters(self, history_service, mock_repo):
+        """Test sans filtres (tous None)"""
 
-             start_date="2026-01-01T00:00:00",
+        mock_repo.find_with_filters.return_value = []
 
-             end_date="2026-01-31T23:59:59",
+        result = history_service.get_filtered_history()
 
-             limit=50
+        mock_repo.find_with_filters.assert_called_once()
 
-         )
+        assert result["filters"]["location"] is None
 
-     def test_get_filtered_history_returns_correct_structure(self, history_service, mock_repo):
+        assert result["filters"]["sensor_type"] is None
 
-         """Test structure de retour de get_filtered_history"""
+    def test_get_filtered_history_includes_filter_info(self, history_service, mock_repo):
+        """Test que les filtres sont inclus dans la réponse"""
 
-         mock_data = [
+        mock_repo.find_with_filters.return_value = []
 
-             {'sensor_id': 't1', 'location': 'salon', 'value': 22.0},
+        result = history_service.get_filtered_history(
+            location="cuisine", sensor_type="consommation", start_date="2026-01-01T00:00:00"
+        )
 
-             {'sensor_id': 't2', 'location': 'salon', 'value': 22.5}
+        assert result["filters"]["location"] == "cuisine"
 
-         ]
+        assert result["filters"]["sensor_type"] == "consommation"
 
-         mock_repo.find_with_filters.return_value = mock_data
+        assert result["filters"]["start_date"] == "2026-01-01T00:00:00"
 
-         result = history_service.get_filtered_history(location="salon")
+    def test_get_filtered_history_with_limit(self, history_service, mock_repo):
+        """Test avec limite de résultats"""
 
-         assert 'count' in result
+        mock_repo.find_with_filters.return_value = [{"id": i} for i in range(10)]
 
-         assert 'filters' in result
+        result = history_service.get_filtered_history(limit=10)
 
-         assert 'data' in result
+        assert result["count"] == 10
 
-         assert result['count'] == 2
-
-         assert result['data'] == mock_data
-
-     def test_get_filtered_history_with_no_filters(self, history_service, mock_repo):
-
-         """Test sans filtres (tous None)"""
-
-         mock_repo.find_with_filters.return_value = []
-
-         result = history_service.get_filtered_history()
-
-         mock_repo.find_with_filters.assert_called_once()
-
-         assert result['filters']['location'] is None
-
-         assert result['filters']['sensor_type'] is None
-
-     def test_get_filtered_history_includes_filter_info(self, history_service, mock_repo):
-
-         """Test que les filtres sont inclus dans la réponse"""
-
-         mock_repo.find_with_filters.return_value = []
-
-         result = history_service.get_filtered_history(
-
-             location="cuisine",
-
-             sensor_type="consommation",
-
-             start_date="2026-01-01T00:00:00"
-
-         )
-
-         assert result['filters']['location'] == "cuisine"
-
-         assert result['filters']['sensor_type'] == "consommation"
-
-         assert result['filters']['start_date'] == "2026-01-01T00:00:00"
-
-     def test_get_filtered_history_with_limit(self, history_service, mock_repo):
-
-         """Test avec limite de résultats"""
-
-         mock_repo.find_with_filters.return_value = [{'id': i} for i in range(10)]
-
-         result = history_service.get_filtered_history(limit=10)
-
-         assert result['count'] == 10
-
-         mock_repo.find_with_filters.assert_called_with(
-
-             location=None,
-
-             sensor_type=None,
-
-             start_date=None,
-
-             end_date=None,
-
-             limit=10
-
-         )
+        mock_repo.find_with_filters.assert_called_with(
+            location=None, sensor_type=None, start_date=None, end_date=None, limit=10
+        )

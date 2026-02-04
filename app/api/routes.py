@@ -1,4 +1,5 @@
 """Configuration de toutes les routes FastAPI - Iteration 1 et 2"""
+
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -54,7 +55,7 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
         sensor_type: Optional[str] = Query(None, description="Filter by sensor type"),
         start_date: Optional[str] = Query(None, description="Start date (ISO)"),
         end_date: Optional[str] = Query(None, description="End date (ISO)"),
-        limit: int = Query(100, ge=1, le=1000, description="Max results")
+        limit: int = Query(100, ge=1, le=1000, description="Max results"),
     ):
         """Récupère l'historique filtré"""
         return _history.get_filtered_history(
@@ -62,20 +63,18 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
             sensor_type=sensor_type,
             start_date=start_date,
             end_date=end_date,
-            limit=limit
+            limit=limit,
         )
 
     @app.get("/api/stats/hourly")
     def get_hourly_stats(
         location: Optional[str] = Query(None),
         sensor_type: str = Query("temperature"),
-        date: Optional[str] = Query(None, description="Date (YYYY-MM-DD)")
+        date: Optional[str] = Query(None, description="Date (YYYY-MM-DD)"),
     ):
         """Statistiques horaires"""
         return _stats_advanced.calculate_hourly_stats(
-            location=location,
-            sensor_type=sensor_type,
-            date=date
+            location=location, sensor_type=sensor_type, date=date
         )
 
     # ========================================================================
@@ -91,23 +90,19 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
     def update_alert_config(config: AlertConfigUpdate):
         """Modifier configuration alertes"""
         updated_config = {}
-        
+
         if config.temperature:
             if config.temperature.min is not None:
-                updated_config['temp_min'] = config.temperature.min
+                updated_config["temp_min"] = config.temperature.min
             if config.temperature.max is not None:
-                updated_config['temp_max'] = config.temperature.max
-        
+                updated_config["temp_max"] = config.temperature.max
+
         if config.consumption and config.consumption.max is not None:
-            updated_config['consumption_max'] = config.consumption.max
-        
+            updated_config["consumption_max"] = config.consumption.max
+
         result = _alerts.update_config(**updated_config)
-        
-        return {
-            "status": "ok",
-            "message": "Config updated",
-            "new_config": result
-        }
+
+        return {"status": "ok", "message": "Config updated", "new_config": result}
 
     @app.get("/api/alerts/active")
     def get_active_alerts():

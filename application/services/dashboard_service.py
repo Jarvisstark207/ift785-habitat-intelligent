@@ -11,7 +11,7 @@ class DashboardService:
         self,
         repository: SQLiteSensorRepository,
         stats_service: StatsService,
-        alert_service: AlertService
+        alert_service: AlertService,
     ):
         self._repo = repository
         self._stats = stats_service
@@ -23,9 +23,7 @@ class DashboardService:
         # Stats par location
         locations_data = {}
         for location in locations:
-            locations_data[location] = self._stats.calculate_location_stats(
-                location
-            )
+            locations_data[location] = self._stats.calculate_location_stats(location)
 
         # Stats globales
         global_stats = self._stats.calculate_global_stats(locations)
@@ -46,5 +44,5 @@ class DashboardService:
             "alerts": alerts,
             "recent": recent,
             "temperature_history": temp_history,
-            "consumption_current": consumption_current
+            "consumption_current": consumption_current,
         }

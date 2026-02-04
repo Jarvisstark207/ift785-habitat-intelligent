@@ -18,10 +18,7 @@ class SensorReadingRepository(ABC):
 
     @abstractmethod
     def find_by_location_and_type(
-        self,
-        location: str,
-        sensor_type: str,
-        limit: int = 10
+        self, location: str, sensor_type: str, limit: int = 10
     ) -> List[SensorReading]:
         """Trouve lectures par location et type"""
         pass

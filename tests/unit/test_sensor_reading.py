@@ -2,160 +2,139 @@
 
 import pytest
 from domain.models.sensor_reading import SensorReading
- 
- 
+
+
 class TestSensorReading:
+    """Tests pour le modèle SensorReading"""
 
-     """Tests pour le modèle SensorReading"""
+    def test_create_sensor_reading_success(self):
+        """Test création d'une lecture valide"""
 
-     def test_create_sensor_reading_success(self):
+        reading = SensorReading(
+            sensor_id="temp_001",
+            location="salon",
+            type="temperature",
+            value=22.5,
+            unit="°C",
+            timestamp="2026-02-03T10:00:00",
+        )
 
-         """Test création d'une lecture valide"""
+        assert reading.sensor_id == "temp_001"
 
-         reading = SensorReading(
+        assert reading.location == "salon"
 
-             sensor_id="temp_001",
+        assert reading.type == "temperature"
 
-             location="salon",
+        assert reading.value == 22.5
 
-             type="temperature",
+        assert reading.unit == "°C"
 
-             value=22.5,
+        assert reading.timestamp == "2026-02-03T10:00:00"
 
-             unit="°C",
+    def test_sensor_reading_is_immutable(self):
+        """Test que SensorReading est immutable (frozen)"""
 
-             timestamp="2026-02-03T10:00:00"
+        reading = SensorReading(
+            sensor_id="temp_001",
+            location="salon",
+            type="temperature",
+            value=22.5,
+            unit="°C",
+            timestamp="2026-02-03T10:00:00",
+        )
 
-         )
+        with pytest.raises(AttributeError):
 
-         assert reading.sensor_id == "temp_001"
+            reading.value = 25.0
 
-         assert reading.location == "salon"
+    def test_to_db_tuple(self, sample_reading):
+        """Test conversion en tuple pour DB"""
 
-         assert reading.type == "temperature"
+        db_tuple = sample_reading.to_db_tuple()
 
-         assert reading.value == 22.5
+        assert len(db_tuple) == 6
 
-         assert reading.unit == "°C"
+        assert db_tuple[0] == "temp_001"
 
-         assert reading.timestamp == "2026-02-03T10:00:00"
+        assert db_tuple[1] == "salon"
 
-     def test_sensor_reading_is_immutable(self):
+        assert db_tuple[2] == "temperature"
 
-         """Test que SensorReading est immutable (frozen)"""
+        assert db_tuple[3] == 22.5
 
-         reading = SensorReading(
+        assert db_tuple[4] == "°C"
 
-             sensor_id="temp_001",
+        assert db_tuple[5] == "2026-02-03T10:00:00"
 
-             location="salon",
+    def test_to_dict(self, sample_reading):
+        """Test conversion en dictionnaire"""
 
-             type="temperature",
+        result = sample_reading.to_dict()
 
-             value=22.5,
+        assert isinstance(result, dict)
 
-             unit="°C",
+        assert result["sensor_id"] == "temp_001"
 
-             timestamp="2026-02-03T10:00:00"
+        assert result["location"] == "salon"
 
-         )
+        assert result["type"] == "temperature"
 
-         with pytest.raises(AttributeError):
+        assert result["value"] == 22.5
 
-             reading.value = 25.0
+        assert result["unit"] == "°C"
 
-     def test_to_db_tuple(self, sample_reading):
+        assert result["timestamp"] == "2026-02-03T10:00:00"
 
-         """Test conversion en tuple pour DB"""
+    def test_from_sensor_data(self):
+        """Test création depuis objet sensor_data"""
 
-         db_tuple = sample_reading.to_db_tuple()
+        class MockSensorData:
 
-         assert len(db_tuple) == 6
+            sensor_id = "temp_001"
 
-         assert db_tuple[0] == "temp_001"
+            location = "salon"
 
-         assert db_tuple[1] == "salon"
+            type = "temperature"
 
-         assert db_tuple[2] == "temperature"
+            value = 22.5
 
-         assert db_tuple[3] == 22.5
+            unit = "°C"
 
-         assert db_tuple[4] == "°C"
+            timestamp = "2026-02-03T10:00:00"
 
-         assert db_tuple[5] == "2026-02-03T10:00:00"
+        mock_data = MockSensorData()
 
-     def test_to_dict(self, sample_reading):
+        reading = SensorReading.from_sensor_data(mock_data)
 
-         """Test conversion en dictionnaire"""
+        assert reading.sensor_id == "temp_001"
 
-         result = sample_reading.to_dict()
+        assert reading.location == "salon"
 
-         assert isinstance(result, dict)
+        assert reading.type == "temperature"
 
-         assert result["sensor_id"] == "temp_001"
+    def test_sensor_reading_with_different_types(self):
+        """Test avec différents types de capteurs"""
 
-         assert result["location"] == "salon"
+        # Température
 
-         assert result["type"] == "temperature"
+        temp = SensorReading("t1", "salon", "temperature", 22.5, "°C", "2026-01-01T10:00:00")
 
-         assert result["value"] == 22.5
+        assert temp.type == "temperature"
 
-         assert result["unit"] == "°C"
+        # Lumière
 
-         assert result["timestamp"] == "2026-02-03T10:00:00"
+        light = SensorReading("l1", "cuisine", "lumiere", 500, "lux", "2026-01-01T10:00:00")
 
-     def test_from_sensor_data(self):
+        assert light.type == "lumiere"
 
-         """Test création depuis objet sensor_data"""
+        # Consommation
 
-         class MockSensorData:
+        power = SensorReading("p1", "chambre", "consommation", 150.0, "W", "2026-01-01T10:00:00")
 
-             sensor_id = "temp_001"
+        assert power.type == "consommation"
 
-             location = "salon"
+        # Mouvement
 
-             type = "temperature"
+        motion = SensorReading("m1", "salon", "mouvement", 1, "bool", "2026-01-01T10:00:00")
 
-             value = 22.5
-
-             unit = "°C"
-
-             timestamp = "2026-02-03T10:00:00"
-
-         mock_data = MockSensorData()
-
-         reading = SensorReading.from_sensor_data(mock_data)
-
-         assert reading.sensor_id == "temp_001"
-
-         assert reading.location == "salon"
-
-         assert reading.type == "temperature"
-
-     def test_sensor_reading_with_different_types(self):
-
-         """Test avec différents types de capteurs"""
-
-         # Température
-
-         temp = SensorReading("t1", "salon", "temperature", 22.5, "°C", "2026-01-01T10:00:00")
-
-         assert temp.type == "temperature"
-
-         # Lumière
-
-         light = SensorReading("l1", "cuisine", "lumiere", 500, "lux", "2026-01-01T10:00:00")
-
-         assert light.type == "lumiere"
-
-         # Consommation
-
-         power = SensorReading("p1", "chambre", "consommation", 150.0, "W", "2026-01-01T10:00:00")
-
-         assert power.type == "consommation"
-
-         # Mouvement
-
-         motion = SensorReading("m1", "salon", "mouvement", 1, "bool", "2026-01-01T10:00:00")
-
-         assert motion.type == "mouvement"
+        assert motion.type == "mouvement"

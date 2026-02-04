@@ -51,9 +51,7 @@ class TestStatsService:
 
         mock_repo.get_average_temperature.assert_called_once_with(locations)
 
-    def test_calculate_location_stats_returns_none_for_missing_data(
-        self, stats_service, mock_repo
-    ):
+    def test_calculate_location_stats_returns_none_for_missing_data(self, stats_service, mock_repo):
         """Test gestion des données manquantes"""
 
         mock_repo.get_stats_for_location.return_value = {

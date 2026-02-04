@@ -1,4 +1,5 @@
 """Tests d'intégration pour la configuration des alertes"""
+
 import pytest
 from datetime import datetime
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
@@ -14,8 +15,8 @@ class TestAlertConfigIntegration:
     @pytest.fixture(autouse=True)
     def setup_services(self, temp_db, monkeypatch):
         """Configure services avec DB temporaire"""
-        monkeypatch.setattr('config.DB_NAME', temp_db)
-        monkeypatch.setattr('infrastructure.db.sqlite_connection.DB_NAME', temp_db)
+        monkeypatch.setattr("config.DB_NAME", temp_db)
+        monkeypatch.setattr("infrastructure.db.sqlite_connection.DB_NAME", temp_db)
 
         self.repo = SQLiteSensorRepository()
         self.stats_service = StatsService(self.repo)
@@ -31,16 +32,16 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MIN - 5,  # En dessous du seuil
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading)
 
         alerts = self.alert_service.generate_alerts(["salon"])
 
         assert len(alerts) > 0
-        temp_alerts = [a for a in alerts if a['type'] == 'temperature']
+        temp_alerts = [a for a in alerts if a["type"] == "temperature"]
         assert len(temp_alerts) > 0
-        assert temp_alerts[0]['location'] == 'salon'
+        assert temp_alerts[0]["location"] == "salon"
 
     def test_alert_generation_with_real_consumption_data(self):
         """Test génération d'alertes avec vraies données consommation"""
@@ -51,16 +52,16 @@ class TestAlertConfigIntegration:
             type="consommation",
             value=ALERT_CONSUMPTION_MAX + 500,  # Au-dessus du seuil
             unit="W",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading)
 
         alerts = self.alert_service.generate_alerts(["cuisine"])
 
         assert len(alerts) > 0
-        consumption_alerts = [a for a in alerts if a['type'] == 'consumption']
+        consumption_alerts = [a for a in alerts if a["type"] == "consumption"]
         assert len(consumption_alerts) > 0
-        assert consumption_alerts[0]['severity'] == 'critical'
+        assert consumption_alerts[0]["severity"] == "critical"
 
     def test_no_alerts_with_normal_values(self):
         """Test pas d'alertes avec valeurs normales"""
@@ -71,7 +72,7 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=(ALERT_TEMP_MIN + ALERT_TEMP_MAX) / 2,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(temp_reading)
 
@@ -82,7 +83,7 @@ class TestAlertConfigIntegration:
             type="consommation",
             value=ALERT_CONSUMPTION_MAX / 2,
             unit="W",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(power_reading)
 
@@ -99,7 +100,7 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MIN - 5,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(temp_reading)
 
@@ -110,7 +111,7 @@ class TestAlertConfigIntegration:
             type="consommation",
             value=ALERT_CONSUMPTION_MAX + 500,
             unit="W",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(power_reading)
 
@@ -118,9 +119,9 @@ class TestAlertConfigIntegration:
 
         # Devrait y avoir 2 alertes minimum
         assert len(alerts) >= 2
-        alert_types = {a['type'] for a in alerts}
-        assert 'temperature' in alert_types
-        assert 'consumption' in alert_types
+        alert_types = {a["type"] for a in alerts}
+        assert "temperature" in alert_types
+        assert "consumption" in alert_types
 
     def test_alerts_multiple_locations(self):
         """Test alertes pour plusieurs locations"""
@@ -131,7 +132,7 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MIN - 3,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading1)
 
@@ -142,7 +143,7 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MAX + 3,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading2)
 
@@ -153,17 +154,17 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=22.0,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading3)
 
         alerts = self.alert_service.generate_alerts(["salon", "cuisine", "chambre"])
 
         assert len(alerts) >= 2
-        locations_with_alerts = {a['location'] for a in alerts}
-        assert 'salon' in locations_with_alerts
-        assert 'cuisine' in locations_with_alerts
-        assert 'chambre' not in locations_with_alerts
+        locations_with_alerts = {a["location"] for a in alerts}
+        assert "salon" in locations_with_alerts
+        assert "cuisine" in locations_with_alerts
+        assert "chambre" not in locations_with_alerts
 
     def test_alert_threshold_boundary_values(self):
         """Test valeurs limites des seuils d'alerte"""
@@ -174,13 +175,13 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MIN,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading_min)
 
         alerts_min = self.alert_service.generate_alerts(["test1"])
         # Ne devrait pas générer d'alerte à la limite exacte
-        temp_alerts = [a for a in alerts_min if a['type'] == 'temperature']
+        temp_alerts = [a for a in alerts_min if a["type"] == "temperature"]
         assert len(temp_alerts) == 0
 
         # Juste en dessous du minimum (alerte)
@@ -190,18 +191,19 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MIN - 0.1,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading_below)
 
         alerts_below = self.alert_service.generate_alerts(["test2"])
-        temp_alerts_below = [a for a in alerts_below if a['type'] == 'temperature']
+        temp_alerts_below = [a for a in alerts_below if a["type"] == "temperature"]
         assert len(temp_alerts_below) > 0
 
     def test_alert_config_with_historical_data(self):
         """Test configuration alertes avec données historiques"""
         # Insérer plusieurs lectures sur le temps
         from datetime import timedelta
+
         base_time = datetime.now()
 
         for i in range(10):
@@ -214,7 +216,7 @@ class TestAlertConfigIntegration:
                 type="temperature",
                 value=value,
                 unit="°C",
-                timestamp=timestamp
+                timestamp=timestamp,
             )
             self.repo.save(reading)
 
@@ -234,7 +236,7 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MIN - 5,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading)
 
@@ -255,7 +257,7 @@ class TestAlertConfigIntegration:
             type="temperature",
             value=ALERT_TEMP_MIN - 5,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
         self.repo.save(reading_bad)
 
@@ -264,6 +266,7 @@ class TestAlertConfigIntegration:
 
         # Ajouter plusieurs lectures normales récentes
         import time
+
         time.sleep(0.1)  # Assurer timestamp différent
         for i in range(10):
             reading_good = SensorReading(
@@ -272,7 +275,7 @@ class TestAlertConfigIntegration:
                 type="temperature",
                 value=22.0,
                 unit="°C",
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
             self.repo.save(reading_good)
 

@@ -7,166 +7,135 @@ from unittest.mock import Mock
 from datetime import datetime
 
 from application.services.stats_advanced_service import StatsAdvancedService
- 
- 
+
+
 class TestStatsAdvancedService:
+    """Tests pour le service de statistiques avancées"""
 
-     """Tests pour le service de statistiques avancées"""
+    def test_calculate_hourly_stats_uses_today_if_no_date(self, stats_advanced_service, mock_repo):
+        """Test utilise date du jour si aucune date fournie"""
 
-     def test_calculate_hourly_stats_uses_today_if_no_date(self, stats_advanced_service, mock_repo):
+        mock_repo.find_with_filters.return_value = []
 
-         """Test utilise date du jour si aucune date fournie"""
+        stats_advanced_service.calculate_hourly_stats()
 
-         mock_repo.find_with_filters.return_value = []
+        today = datetime.now().strftime("%Y-%m-%d")
 
-         stats_advanced_service.calculate_hourly_stats()
+        mock_repo.find_with_filters.assert_called_once()
 
-         today = datetime.now().strftime("%Y-%m-%d")
+        # Vérifier que start_date commence par la date du jour
 
-         mock_repo.find_with_filters.assert_called_once()
+        call_args = mock_repo.find_with_filters.call_args[1]
 
-         # Vérifier que start_date commence par la date du jour
+        assert call_args["start_date"].startswith(today)
 
-         call_args = mock_repo.find_with_filters.call_args[1]
+    def test_calculate_hourly_stats_groups_by_hour(self, stats_advanced_service, mock_repo):
+        """Test groupement des données par heure"""
 
-         assert call_args['start_date'].startswith(today)
+        mock_data = [
+            {"timestamp": "2026-02-03T10:15:00", "value": 22.0},
+            {"timestamp": "2026-02-03T10:30:00", "value": 22.5},
+            {"timestamp": "2026-02-03T11:00:00", "value": 23.0},
+            {"timestamp": "2026-02-03T11:15:00", "value": 23.5},
+        ]
 
-     def test_calculate_hourly_stats_groups_by_hour(self, stats_advanced_service, mock_repo):
+        mock_repo.find_with_filters.return_value = mock_data
 
-         """Test groupement des données par heure"""
+        result = stats_advanced_service.calculate_hourly_stats(
+            location="salon", sensor_type="temperature", date="2026-02-03"
+        )
 
-         mock_data = [
+        assert "hourly_stats" in result
 
-             {'timestamp': '2026-02-03T10:15:00', 'value': 22.0},
+        assert len(result["hourly_stats"]) == 2  # 2 heures différentes
 
-             {'timestamp': '2026-02-03T10:30:00', 'value': 22.5},
+    def test_calculate_hourly_stats_computes_avg_min_max(self, stats_advanced_service, mock_repo):
+        """Test calcul avg, min, max pour chaque heure"""
 
-             {'timestamp': '2026-02-03T11:00:00', 'value': 23.0},
+        mock_data = [
+            {"timestamp": "2026-02-03T10:00:00", "value": 20.0},
+            {"timestamp": "2026-02-03T10:15:00", "value": 22.0},
+            {"timestamp": "2026-02-03T10:30:00", "value": 24.0},
+        ]
 
-             {'timestamp': '2026-02-03T11:15:00', 'value': 23.5},
+        mock_repo.find_with_filters.return_value = mock_data
 
-         ]
+        result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
 
-         mock_repo.find_with_filters.return_value = mock_data
+        hourly = result["hourly_stats"][0]
 
-         result = stats_advanced_service.calculate_hourly_stats(
+        assert "avg" in hourly
 
-             location="salon",
+        assert "min" in hourly
 
-             sensor_type="temperature",
+        assert "max" in hourly
 
-             date="2026-02-03"
+        assert "count" in hourly
 
-         )
+        assert hourly["avg"] == 22.0
 
-         assert 'hourly_stats' in result
+        assert hourly["min"] == 20.0
 
-         assert len(result['hourly_stats']) == 2  # 2 heures différentes
+        assert hourly["max"] == 24.0
 
-     def test_calculate_hourly_stats_computes_avg_min_max(self, stats_advanced_service, mock_repo):
+        assert hourly["count"] == 3
 
-         """Test calcul avg, min, max pour chaque heure"""
+    def test_calculate_hourly_stats_with_location_filter(self, stats_advanced_service, mock_repo):
+        """Test filtrage par location"""
 
-         mock_data = [
+        mock_repo.find_with_filters.return_value = []
 
-             {'timestamp': '2026-02-03T10:00:00', 'value': 20.0},
+        result = stats_advanced_service.calculate_hourly_stats(
+            location="cuisine", date="2026-02-03"
+        )
 
-             {'timestamp': '2026-02-03T10:15:00', 'value': 22.0},
+        assert result["location"] == "cuisine"
 
-             {'timestamp': '2026-02-03T10:30:00', 'value': 24.0},
+        call_args = mock_repo.find_with_filters.call_args[1]
 
-         ]
+        assert call_args["location"] == "cuisine"
 
-         mock_repo.find_with_filters.return_value = mock_data
+    def test_calculate_hourly_stats_with_sensor_type_filter(
+        self, stats_advanced_service, mock_repo
+    ):
+        """Test filtrage par type de capteur"""
 
-         result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
+        mock_repo.find_with_filters.return_value = []
 
-         hourly = result['hourly_stats'][0]
+        result = stats_advanced_service.calculate_hourly_stats(
+            sensor_type="consommation", date="2026-02-03"
+        )
 
-         assert 'avg' in hourly
+        assert result["sensor_type"] == "consommation"
 
-         assert 'min' in hourly
+        call_args = mock_repo.find_with_filters.call_args[1]
 
-         assert 'max' in hourly
+        assert call_args["sensor_type"] == "consommation"
 
-         assert 'count' in hourly
+    def test_calculate_hourly_stats_returns_empty_for_no_data(
+        self, stats_advanced_service, mock_repo
+    ):
+        """Test retour vide si pas de données"""
 
-         assert hourly['avg'] == 22.0
+        mock_repo.find_with_filters.return_value = []
 
-         assert hourly['min'] == 20.0
+        result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
 
-         assert hourly['max'] == 24.0
+        assert result["hourly_stats"] == []
 
-         assert hourly['count'] == 3
+    def test_calculate_hourly_stats_sorts_hours(self, stats_advanced_service, mock_repo):
+        """Test que les heures sont triées"""
 
-     def test_calculate_hourly_stats_with_location_filter(self, stats_advanced_service, mock_repo):
+        mock_data = [
+            {"timestamp": "2026-02-03T14:00:00", "value": 22.0},
+            {"timestamp": "2026-02-03T10:00:00", "value": 20.0},
+            {"timestamp": "2026-02-03T12:00:00", "value": 21.0},
+        ]
 
-         """Test filtrage par location"""
+        mock_repo.find_with_filters.return_value = mock_data
 
-         mock_repo.find_with_filters.return_value = []
+        result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
 
-         result = stats_advanced_service.calculate_hourly_stats(
+        hours = [h["hour"] for h in result["hourly_stats"]]
 
-             location="cuisine",
-
-             date="2026-02-03"
-
-         )
-
-         assert result['location'] == "cuisine"
-
-         call_args = mock_repo.find_with_filters.call_args[1]
-
-         assert call_args['location'] == "cuisine"
-
-     def test_calculate_hourly_stats_with_sensor_type_filter(self, stats_advanced_service, mock_repo):
-
-         """Test filtrage par type de capteur"""
-
-         mock_repo.find_with_filters.return_value = []
-
-         result = stats_advanced_service.calculate_hourly_stats(
-
-             sensor_type="consommation",
-
-             date="2026-02-03"
-
-         )
-
-         assert result['sensor_type'] == "consommation"
-
-         call_args = mock_repo.find_with_filters.call_args[1]
-
-         assert call_args['sensor_type'] == "consommation"
-
-     def test_calculate_hourly_stats_returns_empty_for_no_data(self, stats_advanced_service, mock_repo):
-
-         """Test retour vide si pas de données"""
-
-         mock_repo.find_with_filters.return_value = []
-
-         result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
-
-         assert result['hourly_stats'] == []
-
-     def test_calculate_hourly_stats_sorts_hours(self, stats_advanced_service, mock_repo):
-
-         """Test que les heures sont triées"""
-
-         mock_data = [
-
-             {'timestamp': '2026-02-03T14:00:00', 'value': 22.0},
-
-             {'timestamp': '2026-02-03T10:00:00', 'value': 20.0},
-
-             {'timestamp': '2026-02-03T12:00:00', 'value': 21.0},
-
-         ]
-
-         mock_repo.find_with_filters.return_value = mock_data
-
-         result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
-
-         hours = [h['hour'] for h in result['hourly_stats']]
-
-         assert hours == sorted(hours)
+        assert hours == sorted(hours)

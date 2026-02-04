@@ -1,4 +1,5 @@
 """Tests d'intégration pour les opérations de base de données"""
+
 import pytest
 from datetime import datetime, timedelta
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
@@ -11,8 +12,8 @@ class TestDatabaseOperations:
     @pytest.fixture(autouse=True)
     def setup_repo(self, temp_db, monkeypatch):
         """Configure repository avec DB temporaire"""
-        monkeypatch.setattr('config.DB_NAME', temp_db)
-        monkeypatch.setattr('infrastructure.db.sqlite_connection.DB_NAME', temp_db)
+        monkeypatch.setattr("config.DB_NAME", temp_db)
+        monkeypatch.setattr("infrastructure.db.sqlite_connection.DB_NAME", temp_db)
         self.repo = SQLiteSensorRepository()
         yield
 
@@ -24,15 +25,15 @@ class TestDatabaseOperations:
             type="temperature",
             value=22.5,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
         self.repo.save(reading)
         recent = self.repo.find_recent(1)
 
         assert len(recent) == 1
-        assert recent[0]['sensor_id'] == "test_001"
-        assert recent[0]['value'] == 22.5
+        assert recent[0]["sensor_id"] == "test_001"
+        assert recent[0]["value"] == 22.5
 
     def test_save_multiple_readings(self):
         """Test sauvegarde de plusieurs lectures"""
@@ -43,7 +44,7 @@ class TestDatabaseOperations:
                 type="temperature",
                 value=20.0 + i,
                 unit="°C",
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
             self.repo.save(reading)
 
@@ -62,14 +63,14 @@ class TestDatabaseOperations:
                 type="temperature",
                 value=20.0 + i,
                 unit="°C",
-                timestamp=timestamp
+                timestamp=timestamp,
             )
             self.repo.save(reading)
 
         recent = self.repo.find_recent(10)
 
         # Premier élément devrait être le plus récent
-        assert recent[0]['sensor_id'] == "test_0"
+        assert recent[0]["sensor_id"] == "test_0"
 
     def test_find_by_location_and_type(self):
         """Test recherche par location et type"""
@@ -87,7 +88,7 @@ class TestDatabaseOperations:
                 type=sensor_type,
                 value=100.0,
                 unit="unit",
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
             self.repo.save(reading)
 
@@ -108,10 +109,10 @@ class TestDatabaseOperations:
                 type="temperature",
                 value=22.0,
                 unit="°C",
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
             self.repo.save(reading)
-        except:
+        except BaseException:
             pass
 
         # Vérifier que rien n'a été inséré
@@ -128,7 +129,7 @@ class TestDatabaseOperations:
                 type="temperature",
                 value=20.0 + i,
                 unit="°C",
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
             self.repo.save(reading)
 
@@ -143,14 +144,14 @@ class TestDatabaseOperations:
             type="temperature",
             value=22.0,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
         self.repo.save(reading)
         recent = self.repo.find_recent(1)
 
         assert len(recent) == 1
-        assert "quote" in recent[0]['sensor_id']
+        assert "quote" in recent[0]["sensor_id"]
 
     def test_database_persistence(self):
         """Test persistance des données"""
@@ -160,7 +161,7 @@ class TestDatabaseOperations:
             type="temperature",
             value=22.0,
             unit="°C",
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
         self.repo.save(reading)
@@ -170,7 +171,7 @@ class TestDatabaseOperations:
         recent = new_repo.find_recent(10)
 
         assert len(recent) == 1
-        assert recent[0]['sensor_id'] == "persist_test"
+        assert recent[0]["sensor_id"] == "persist_test"
 
     def test_large_batch_insert(self):
         """Test insertion de grand lot de données"""
@@ -183,7 +184,7 @@ class TestDatabaseOperations:
                 type="temperature",
                 value=20.0 + (i % 10),
                 unit="°C",
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
             self.repo.save(reading)
 

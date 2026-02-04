@@ -5,6 +5,7 @@ from typing import Optional
 @dataclass
 class Sensor:
     """Représente un capteur physique"""
+
     sensor_id: str
     type: str
     unit: str

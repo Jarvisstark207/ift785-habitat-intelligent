@@ -1,4 +1,5 @@
 """Tests API pour validation des réponses et formats"""
+
 import json
 from datetime import datetime
 
