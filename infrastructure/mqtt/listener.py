@@ -6,11 +6,7 @@ from application.use_cases.ingest_sensor_reading import IngestSensorReading
 class SensorListener:
     """Service qui écoute les capteurs et ingère les données"""
 
-    def __init__(
-        self,
-        sensor_source: SensorSource,
-        ingest_use_case: IngestSensorReading
-    ):
+    def __init__(self, sensor_source: SensorSource, ingest_use_case: IngestSensorReading):
         self._source = sensor_source
         self._ingest = ingest_use_case
 

@@ -19,7 +19,7 @@ class StatsService:
         avg_temp = self._repo.get_average_temperature(locations)
 
         return {
-            'total_consumption': total_consumption,
-            'occupied_rooms': occupied_rooms,
-            'avg_temp': avg_temp
+            "total_consumption": total_consumption,
+            "occupied_rooms": occupied_rooms,
+            "avg_temp": avg_temp,
         }
