@@ -11,6 +11,7 @@ from application.services.history_service import HistoryService
 from application.services.stats_advanced_service import StatsAdvancedService
 from application.services.alert_service import AlertService
 from application.services.stats_service import StatsService
+from domain.models.alert_config import AlertConfigUpdate
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
 from config import LOCATIONS, ALERT_TEMP_MIN, ALERT_TEMP_MAX, ALERT_CONSUMPTION_MAX
 
@@ -84,15 +85,29 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
     @app.get("/api/alerts/config")
     def get_alert_config():
         """Configuration alertes"""
-        return {
-            "temperature": {"min": ALERT_TEMP_MIN, "max": ALERT_TEMP_MAX},
-            "consumption": {"max": ALERT_CONSUMPTION_MAX}
-        }
+        return _alerts.get_config()
 
     @app.post("/api/alerts/config")
-    def update_alert_config():
+    def update_alert_config(config: AlertConfigUpdate):
         """Modifier configuration alertes"""
-        return {"status": "ok", "message": "Config updated"}
+        updated_config = {}
+        
+        if config.temperature:
+            if config.temperature.min is not None:
+                updated_config['temp_min'] = config.temperature.min
+            if config.temperature.max is not None:
+                updated_config['temp_max'] = config.temperature.max
+        
+        if config.consumption and config.consumption.max is not None:
+            updated_config['consumption_max'] = config.consumption.max
+        
+        result = _alerts.update_config(**updated_config)
+        
+        return {
+            "status": "ok",
+            "message": "Config updated",
+            "new_config": result
+        }
 
     @app.get("/api/alerts/active")
     def get_active_alerts():
