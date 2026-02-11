@@ -528,3 +528,4 @@ class TestAPIIntegration:
         # Config
         response_config = client.get("/api/alerts/config")
         assert response_config.status_code == 200
+#
