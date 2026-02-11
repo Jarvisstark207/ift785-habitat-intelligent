@@ -56,3 +56,4 @@ class TestFactory:
         light2 = nest_factory.create_light("light_2", "Test", "Room")
 
         assert light1.manufacturer != light2.manufacturer
+
