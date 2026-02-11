@@ -111,7 +111,7 @@ class TestDatabaseOperations:
                 timestamp=datetime.now().isoformat()
             )
             self.repo.save(reading)
-        except:
+        except Exception:
             pass
 
         # Vérifier que rien n'a été inséré

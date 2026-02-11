@@ -77,4 +77,6 @@ class DeviceRegistry:
         """Retourne l'instance du singleton"""
         if cls._instance is None:
             cls._instance = cls()
-        return cls._instance # Permet d'obtenir l'instance du registre pour l'utiliser dans toute l'application
+        # Permet d'obtenir l'instance du registre pour l'utiliser dans
+        # toute l'application
+        return cls._instance

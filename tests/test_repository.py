@@ -1,7 +1,5 @@
 """Tests pour le pattern Repository"""
 
-import pytest
-
 from domain.models.device_registry import DeviceRegistry
 from domain.models.device import Light, Thermostat
 
@@ -115,4 +113,3 @@ class TestRepository:
         registry.register(light)
         assert registry.exists("light_1") is True
         assert registry.exists("light_2") is False
-#

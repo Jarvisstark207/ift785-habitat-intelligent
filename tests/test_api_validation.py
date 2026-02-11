@@ -4,6 +4,15 @@ import sys
 import importlib.util
 from pathlib import Path
 from datetime import datetime, timedelta
+from starlette.testclient import TestClient
+
+import pytest
+
+from domain.models.alert_config import (
+    AlertConfigUpdate,
+    TemperatureConfig,
+    ConsumptionConfig,
+)
 
 # Load app.py from root directory
 app_path = Path(__file__).parent.parent / "app.py"
@@ -12,16 +21,7 @@ app_module = importlib.util.module_from_spec(spec)
 sys.modules["app_module"] = app_module
 spec.loader.exec_module(app_module)
 
-import pytest
-from starlette.testclient import TestClient
-from unittest.mock import Mock, patch, MagicMock
-
-from domain.models.alert_config import (
-    AlertConfigUpdate,
-    TemperatureConfig,
-    ConsumptionConfig,
-)
-
+# Load app and models
 app = app_module.app
 
 
@@ -327,7 +327,7 @@ class TestAlertConfigAPI:
         # On teste qu'une valeur invalide lève une ValidationError
         from pydantic_core import ValidationError
         with pytest.raises(ValidationError):
-            config = AlertConfigUpdate(
+            _ = AlertConfigUpdate(
                 temperature=TemperatureConfig(min=-5.0)
             )
 
@@ -337,7 +337,7 @@ class TestAlertConfigAPI:
         # On teste qu'une valeur invalide lève une ValidationError
         from pydantic_core import ValidationError
         with pytest.raises(ValidationError):
-            config = AlertConfigUpdate(
+            _ = AlertConfigUpdate(
                 temperature=TemperatureConfig(max=55.0)
             )
 
@@ -347,7 +347,7 @@ class TestAlertConfigAPI:
         # On teste qu'une valeur invalide lève une ValidationError
         from pydantic_core import ValidationError
         with pytest.raises(ValidationError):
-            config = AlertConfigUpdate(
+            _ = AlertConfigUpdate(
                 consumption=ConsumptionConfig(max=-100.0)
             )
 
@@ -528,4 +528,3 @@ class TestAPIIntegration:
         # Config
         response_config = client.get("/api/alerts/config")
         assert response_config.status_code == 200
-#

@@ -271,6 +271,7 @@ class TestDeviceAPI:
             data = response.json()
             # Le fabricant devrait être avec majuscule
             assert manufacturer.lower() in data["device"]["manufacturer"].lower()
+
     def test_update_device(self):
         """Teste la mise à jour d'un device"""
         payload = {
@@ -426,10 +427,10 @@ class TestDeviceAPI:
         client.post("/api/devices/build", json=payload1)
         client.post("/api/devices/build", json=payload2)
         client.post("/api/devices/build", json=payload3)
-
         # Rechercher light + Philips dans Living Room
         response = client.get(
-            "/api/devices/search/advanced?device_type=light&room_name=Living%20Room&manufacturer=Philips"
+            "/api/devices/search/advanced?device_type=light&"
+            "room_name=Living%20Room&manufacturer=Philips"
         )
         assert response.status_code == 200
         data = response.json()

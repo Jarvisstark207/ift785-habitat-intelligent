@@ -170,5 +170,4 @@ class DeviceBuilder:
         self._alarm_threshold = 1000.0
         self._motion_detected = False
         self._sensitivity = 5
-        return self 
-
+        return self

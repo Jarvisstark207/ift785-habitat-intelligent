@@ -182,6 +182,7 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
             return {"status": "ok", "message": f"Device {device_id} deleted"}
         else:
             return {"status": "error", "message": f"Device {device_id} not found"}
+
     @app.put("/api/devices/{device_id}")
     def update_device(device_id: str, config: dict):
         """Met à jour un device"""
@@ -220,7 +221,7 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
         """Liste les devices avec pagination"""
         all_devices = _device_service.get_all_devices()
         total = len(all_devices)
-        devices = all_devices[skip : skip + limit]
+        devices = all_devices[skip:skip + limit]
         return {
             "total": total,
             "skip": skip,

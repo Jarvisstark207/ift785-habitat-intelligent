@@ -109,4 +109,5 @@ class DeviceService:
 
     def get_device_count(self) -> int:
         """Compte le nombre de devices"""
-        return self.registry.count() # Retourne le nombre de devices dans le registre
+        # Retourne le nombre de devices dans le registre
+        return self.registry.count()

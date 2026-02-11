@@ -1,7 +1,5 @@
 """Tests pour le pattern Factory"""
 
-import pytest
-
 from domain.models.device_factory import PhilipsFactory, NestFactory, GenericFactory, DeviceFactory
 from domain.models.device import Light, Thermostat
 
