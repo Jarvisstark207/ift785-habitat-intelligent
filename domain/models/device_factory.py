@@ -331,4 +331,4 @@ class DeviceFactoryProvider:
     @classmethod
     def register_factory(cls, name: str, factory: DeviceFactory) -> None:
         """Enregistre une nouvelle fabrique"""
-        cls._factories[name.lower()] = factory
+        cls._factories[name.lower()] = factory # Permet d'ajouter une nouvelle fabrique au provider
