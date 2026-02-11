@@ -258,6 +258,30 @@ class CodeEvaluator:
                                     f"✗ {check['name']}: aucun endpoint (0/{check['points']})"
                                 )
 
+            elif check_type == "pattern_detection":
+                patterns = check.get("patterns", [])
+                found_patterns = self._detect_patterns(patterns)
+                num_found = len(found_patterns)
+                num_required = len(patterns)
+
+                if num_found == num_required:
+                    check_points = check["points"]
+                    patterns_str = ", ".join(found_patterns)
+                    self.details.append(
+                        f"✓ {check['name']}: {patterns_str} ({check_points}/{check['points']})"
+                    )
+                elif num_found > 0:
+                    partial = int((num_found / num_required) * check["points"])
+                    check_points = partial
+                    patterns_str = ", ".join(found_patterns)
+                    self.details.append(
+                        f"⚠ {check['name']}: {patterns_str} ({num_found}/{num_required}) ({partial}/{check['points']})"
+                    )
+                else:
+                    self.details.append(
+                        f"✗ {check['name']}: aucun pattern detecte (0/{check['points']})"
+                    )
+
             points += check_points
 
         score = (points / total_check_points) * weight
@@ -560,6 +584,42 @@ class CodeEvaluator:
             except:
                 continue
         return classes
+
+    def _detect_patterns(self, patterns):
+        """Detecte patterns de conception (Factory, Repository, Observer, etc.)"""
+        found = []
+        pattern_keywords = {
+            "Factory": ["Factory", "factory"],
+            "Repository": ["Repository", "repository", "Repo"],
+            "Observer": ["Observer", "observer", "Listener", "listener"],
+        }
+
+        for pattern in patterns:
+            keywords = pattern_keywords.get(pattern, [pattern])
+            detected = False
+
+            # Chercher dans les fichiers Python
+            for py_file in Path(".").rglob("*.py"):
+                if self._should_exclude_file(py_file):
+                    continue
+                try:
+                    with open(py_file, "r") as f:
+                        content = f.read()
+                        # Chercher le pattern dans les noms de classe ou en commentaires
+                        for keyword in keywords:
+                            if keyword in content:
+                                detected = True
+                                break
+                except:
+                    continue
+
+                if detected:
+                    break
+
+            if detected:
+                found.append(pattern)
+
+        return found
 
     def run_evaluation(self):
         """Execute evaluation complete"""
