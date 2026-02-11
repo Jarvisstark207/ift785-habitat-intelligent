@@ -280,3 +280,4 @@ class TestAlertConfigIntegration:
         alerts_after = self.alert_service.generate_alerts(["salon"])
         # Selon la logique, l'alerte pourrait disparaître
         assert isinstance(alerts_after, list)
+#
