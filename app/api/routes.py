@@ -252,7 +252,7 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
             ]
 
         total = len(all_devices)
-        devices = all_devices[skip : skip + limit]
+        devices = all_devices[skip:skip + limit]
 
         return {
             "total": total,

@@ -55,3 +55,4 @@ class TestFactory:
 
         assert light1.manufacturer != light2.manufacturer
 
+        assert light1.manufacturer != light2.manufacturer
