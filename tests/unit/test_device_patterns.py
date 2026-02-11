@@ -711,3 +711,4 @@ class TestDeviceService:
             }
             self.service.build_device(config)
         assert self.service.get_device_count() == 5
+#
