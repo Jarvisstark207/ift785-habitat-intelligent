@@ -115,3 +115,4 @@ class TestRepository:
         registry.register(light)
         assert registry.exists("light_1") is True
         assert registry.exists("light_2") is False
+#
