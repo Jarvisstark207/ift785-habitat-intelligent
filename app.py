@@ -19,6 +19,10 @@ from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
 from infrastructure.mqtt.habitat_client_source import HabitatClientSource
 from infrastructure.mqtt.listener import SensorListener
 from app.api.routes import setup_routes
+from domain.scenarios.scenario_manager import ScenarioManager
+from domain.profiles.profile_manager import ProfileManager
+from domain.house_states.house import House
+from domain.house_states.states import get_state_for_mode
 
 # ============================================================================
 # CRÉATION APP
@@ -97,11 +101,6 @@ def get_active_alerts():
 # ITERATION 4 - Patterns Comportementaux (Observer, Strategy, State)
 # ============================================================================
 
-from domain.scenarios.scenario_manager import ScenarioManager
-from domain.profiles.profile_manager import ProfileManager
-from domain.house_states.house import House
-from domain.house_states.states import get_state_for_mode
-
 _scenario_manager = ScenarioManager()
 _profile_manager = ProfileManager()
 _house = House()
@@ -160,7 +159,10 @@ def get_scenario(id: str):
 def toggle_scenario(id: str, data: dict = None):
     """Active ou desactive un scenario"""
     active = (data or {}).get("active", True)
-    ok = _scenario_manager.activate_scenario(id) if active else _scenario_manager.deactivate_scenario(id)
+    if active:
+        ok = _scenario_manager.activate_scenario(id)
+    else:
+        ok = _scenario_manager.deactivate_scenario(id)
     if ok:
         return {"status": "ok", "scenario_id": id, "active": active}
     return {"status": "error", "message": "Scenario not found"}
@@ -231,7 +233,11 @@ def set_house_mode(data: dict):
     try:
         state = get_state_for_mode(data.get("mode", ""))
         _house.set_state(state)
-        return {"status": "ok", "mode": _house.get_current_mode(), "config": _house.get_mode_config()}
+        return {
+            "status": "ok",
+            "mode": _house.get_current_mode(),
+            "config": _house.get_mode_config(),
+        }
     except ValueError as e:
         return {"status": "error", "message": str(e)}
 

@@ -13,6 +13,9 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock
 
 from domain.models.sensor_reading import SensorReading
+from domain.scenarios.scenario_manager import ScenarioManager
+from domain.profiles.profile_manager import ProfileManager
+from domain.house_states.house import House
 
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
 
@@ -264,11 +267,6 @@ def mock_stats_data():
 # ============================================================================
 # ITERATION 4 - Fixtures patterns comportementaux
 # ============================================================================
-
-from domain.scenarios.scenario_manager import ScenarioManager
-from domain.profiles.profile_manager import ProfileManager
-from domain.house_states.house import House
-
 
 @pytest.fixture
 def scenario_manager():
