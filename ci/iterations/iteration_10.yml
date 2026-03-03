@@ -1,0 +1,69 @@
+iteration: 10
+name: "Orchestration Complete + Deploiement Avance"
+description: "Scalabilite horizontale, Load Balancer, Monitoring, Docker Swarm/Compose, Metaclasses"
+
+functionality:
+  weight: 40
+  checks:
+    - name: "Application demarre"
+      points: 6
+      type: "import_test"
+      target: "app"
+    
+    - name: "Scalabilite horizontale"
+      points: 12
+      type: "deployment_check"
+      min_instances: 3
+    
+    - name: "Load balancer"
+      points: 10
+      type: "endpoint_check"
+      endpoints:
+        - "/api/lb/status"
+        - "/api/lb/instances"
+    
+    - name: "Monitoring actif"
+      points: 12
+      type: "endpoint_check"
+      endpoints:
+        - "/metrics"
+        - "/api/monitoring/health"
+        - "/api/monitoring/stats"
+
+tests:
+  weight: 30
+  min_coverage: 85
+  min_tests: 68
+  test_structure:
+    unit:
+      min_tests: 36
+      weight: 50
+      required_files:
+        - "tests/unit/test_load_balancer.py"
+        - "tests/unit/test_monitoring.py"
+        - "tests/unit/test_metaclasses.py"
+    
+    integration:
+      min_tests: 24
+      weight: 35
+      required_files:
+        - "tests/integration/test_scaling.py"
+        - "tests/integration/test_multi_instances.py"
+    
+    api:
+      min_tests: 8
+      weight: 15
+      required_files:
+        - "tests/api/test_monitoring_endpoints.py"
+
+quality:
+  weight: 20
+  max_flake8_errors: 3
+  max_complexity: 8
+  code_duplication: false
+
+git:
+  weight: 10
+  min_commits_per_person: 15
+  min_contribution_ratio: 35
+  conventional_commits_ratio: 85
