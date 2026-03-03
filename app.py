@@ -94,6 +94,156 @@ def get_active_alerts():
 
 
 # ============================================================================
+# ITERATION 4 - Patterns Comportementaux (Observer, Strategy, State)
+# ============================================================================
+
+from domain.scenarios.scenario_manager import ScenarioManager
+from domain.profiles.profile_manager import ProfileManager
+from domain.house_states.house import House
+from domain.house_states.states import get_state_for_mode
+
+_scenario_manager = ScenarioManager()
+_profile_manager = ProfileManager()
+_house = House()
+
+
+@app.post("/api/scenarios")
+def create_scenario(data: dict):
+    """Cree un scenario automatise (Observer)"""
+    try:
+        scenario = _scenario_manager.create_scenario(
+            name=data["name"],
+            conditions=data.get("conditions", []),
+            actions=data.get("actions", []),
+            description=data.get("description", ""),
+        )
+        return {"status": "ok", "scenario": scenario.to_dict()}
+    except (KeyError, ValueError) as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/scenarios")
+def list_scenarios():
+    """Liste tous les scenarios"""
+    scenarios = _scenario_manager.get_all_scenarios()
+    return {"count": len(scenarios), "scenarios": [s.to_dict() for s in scenarios]}
+
+
+@app.post("/api/scenarios/{id}/execute")
+def execute_scenario(id: str):
+    """Execute un scenario manuellement"""
+    result = _scenario_manager.execute_scenario(id)
+    if result:
+        return {"status": "ok", "result": result}
+    return {"status": "error", "message": "Scenario not found"}
+
+
+@app.get("/api/scenarios/{id}/conditions")
+def get_scenario_conditions(id: str):
+    """Retourne les conditions d'un scenario"""
+    scenario = _scenario_manager.get_scenario(id)
+    if scenario:
+        return {"scenario_id": id, "conditions": [c.to_dict() for c in scenario.conditions]}
+    return {"status": "error", "message": "Scenario not found"}
+
+
+@app.get("/api/scenarios/{id}")
+def get_scenario(id: str):
+    """Retourne un scenario par ID"""
+    scenario = _scenario_manager.get_scenario(id)
+    if scenario:
+        return {"status": "ok", "scenario": scenario.to_dict()}
+    return {"status": "error", "message": "Scenario not found"}
+
+
+@app.put("/api/scenarios/{id}/activate")
+def toggle_scenario(id: str, data: dict = None):
+    """Active ou desactive un scenario"""
+    active = (data or {}).get("active", True)
+    ok = _scenario_manager.activate_scenario(id) if active else _scenario_manager.deactivate_scenario(id)
+    if ok:
+        return {"status": "ok", "scenario_id": id, "active": active}
+    return {"status": "error", "message": "Scenario not found"}
+
+
+@app.delete("/api/scenarios/{id}")
+def delete_scenario(id: str):
+    """Supprime un scenario"""
+    if _scenario_manager.delete_scenario(id):
+        return {"status": "ok", "message": f"Scenario {id} deleted"}
+    return {"status": "error", "message": "Scenario not found"}
+
+
+@app.get("/api/profiles/current")
+def get_current_profile():
+    """Retourne le profil actif"""
+    profile = _profile_manager.get_current_profile()
+    if profile:
+        strategy = _profile_manager.get_current_strategy()
+        return {"profile": profile.to_dict(), "strategy": strategy.apply() if strategy else None}
+    return {"profile": None, "strategy": None}
+
+
+@app.post("/api/profiles")
+def create_profile(data: dict):
+    """Cree un profil utilisateur (Strategy)"""
+    try:
+        profile = _profile_manager.create_profile(
+            name=data["name"],
+            strategy_type=data["strategy_type"],
+            settings=data.get("settings", {}),
+        )
+        return {"status": "ok", "profile": profile.to_dict()}
+    except (KeyError, ValueError) as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/profiles")
+def list_profiles():
+    """Liste tous les profils"""
+    profiles = _profile_manager.get_all_profiles()
+    return {"count": len(profiles), "profiles": [p.to_dict() for p in profiles]}
+
+
+@app.post("/api/profiles/{id}/activate")
+def activate_profile(id: str):
+    """Active un profil et applique sa strategie"""
+    if _profile_manager.activate_profile(id):
+        profile = _profile_manager.get_profile(id)
+        strategy = _profile_manager.get_current_strategy()
+        return {
+            "status": "ok",
+            "profile": profile.to_dict(),
+            "strategy_applied": strategy.apply() if strategy else None,
+        }
+    return {"status": "error", "message": "Profile not found"}
+
+
+@app.get("/api/house/mode")
+def get_house_mode():
+    """Retourne le mode actuel de la maison (State)"""
+    return {"mode": _house.get_current_mode(), "config": _house.get_mode_config()}
+
+
+@app.put("/api/house/mode")
+def set_house_mode(data: dict):
+    """Change le mode de la maison manuellement"""
+    try:
+        state = get_state_for_mode(data.get("mode", ""))
+        _house.set_state(state)
+        return {"status": "ok", "mode": _house.get_current_mode(), "config": _house.get_mode_config()}
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/api/house/mode/history")
+def get_house_mode_history():
+    """Retourne l'historique des changements de mode"""
+    history = _house.get_mode_history()
+    return {"count": len(history), "history": history}
+
+
+# ============================================================================
 # DÉMARRAGE
 # ============================================================================
 

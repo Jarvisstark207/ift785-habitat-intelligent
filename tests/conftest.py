@@ -259,3 +259,49 @@ def mock_stats_data():
         "movement": True,
         "consumption": 150.0,
     }
+
+
+# ============================================================================
+# ITERATION 4 - Fixtures patterns comportementaux
+# ============================================================================
+
+from domain.scenarios.scenario_manager import ScenarioManager
+from domain.profiles.profile_manager import ProfileManager
+from domain.house_states.house import House
+
+
+@pytest.fixture
+def scenario_manager():
+    """ScenarioManager vide pour les tests"""
+
+    return ScenarioManager()
+
+
+@pytest.fixture
+def profile_manager():
+    """ProfileManager avec profils par defaut"""
+
+    return ProfileManager()
+
+
+@pytest.fixture
+def house():
+    """Maison en mode domicile par defaut"""
+
+    return House()
+
+
+@pytest.fixture
+def sample_scenario(scenario_manager):
+    """Scenario de temperature pour les tests"""
+
+    return scenario_manager.create_scenario(
+        name="Refroidissement",
+        conditions=[
+            {"trigger_type": "temperature", "operator": ">", "value": 26.0}
+        ],
+        actions=[
+            {"device_id": "fan_01", "action": "turn_on"}
+        ],
+        description="Ventilateur si temperature > 26C",
+    )
