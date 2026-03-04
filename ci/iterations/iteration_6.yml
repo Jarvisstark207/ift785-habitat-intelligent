@@ -1,0 +1,69 @@
+iteration: 6
+name: "Dependency Injection + Repository - Partie 1"
+description: "Migration SQLite->PostgreSQL, DI Container, Repository, Unit of Work"
+
+functionality:
+  weight: 40
+  checks:
+    - name: "Application demarre"
+      points: 8
+      type: "import_test"
+      target: "app"
+    
+    - name: "PostgreSQL fonctionne"
+      points: 12
+      type: "database_check"
+      db_type: "postgresql"
+    
+    - name: "Gestion transactions"
+      points: 12
+      type: "endpoint_check"
+      endpoints:
+        - "/api/devices/batch"
+        - "/api/transactions/rollback-test"
+    
+    - name: "Patterns DI + Repository"
+      points: 8
+      type: "pattern_detection"
+      patterns:
+        - "Repository"
+        - "UnitOfWork"
+        - "DependencyInjection"
+
+tests:
+  weight: 30
+  min_coverage: 82
+  min_tests: 55
+  test_structure:
+    unit:
+      min_tests: 30
+      weight: 55
+      required_files:
+        - "tests/unit/test_repository.py"
+        - "tests/unit/test_unit_of_work.py"
+        - "tests/unit/test_di_container.py"
+    
+    integration:
+      min_tests: 18
+      weight: 30
+      required_files:
+        - "tests/integration/test_postgresql.py"
+        - "tests/integration/test_transactions.py"
+    
+    api:
+      min_tests: 7
+      weight: 15
+      required_files:
+        - "tests/api/test_batch_operations.py"
+
+quality:
+  weight: 20
+  max_flake8_errors: 4
+  max_complexity: 9
+  code_duplication: false
+
+git:
+  weight: 10
+  min_commits_per_person: 12
+  min_contribution_ratio: 35
+  conventional_commits_ratio: 80
