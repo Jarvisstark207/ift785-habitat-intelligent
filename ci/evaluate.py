@@ -22,15 +22,7 @@ class CodeEvaluator:
         self.contributors = {}
         self.excluded_files = self._load_excluded_files()
         # Auteurs à exclure de l'évaluation (demander par le professeur)
-        self.excluded_authors = {
-            "ngankam",
-            "kenh1601",
-            "hubert.ngankam@gmail.com",
-            "hubert.kenfack.ngankam@usherbrooke.ca",
-            "mbom5234",
-            "mouhamadou.mourtala.mbow@usherbrooke.ca",
-            "tram8062",
-        }
+        self.excluded_authors = {}
 
     def _load_excluded_files(self):
         """Charge liste fichiers a exclure de l'evaluation"""
