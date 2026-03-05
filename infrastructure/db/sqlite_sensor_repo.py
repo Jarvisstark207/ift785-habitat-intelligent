@@ -14,7 +14,7 @@ class SQLiteSensorRepository(SensorReadingRepository):
         cursor = conn.cursor()
 
         cursor.execute("""
-            INSERT INTO sensor_readings 
+            INSERT INTO sensor_readings
             (sensor_id, location, type, value, unit, timestamp)
             VALUES (?, ?, ?, ?, ?, ?)
         """, reading.to_db_tuple())

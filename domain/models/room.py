@@ -2,12 +2,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List
 
+if False:  # TYPE_CHECKING
+    from domain.models.device import Device
+
 
 @dataclass
 class Room:
     """Représente une pièce de l'habitat"""
     name: str
-    devices: List[Device] = field(default_factory=list)
+    devices: List['Device'] = field(default_factory=list)
 
     def add_device(self, device: 'Device') -> None:
         """Ajoute un appareil à la pièce"""
