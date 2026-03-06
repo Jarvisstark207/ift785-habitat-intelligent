@@ -36,3 +36,18 @@ class DashboardFacade:
     def register_adapter(self, adapter: SmartHomeAdapter) -> None:
         """Enregistre une integration tierce dans le dashboard"""
         self._adapters.append(adapter)
+
+    def get_summary(self) -> dict:
+        """Retourne un resume global de la maison en un seul appel.
+
+        Agregue: mode maison, profil actif, alertes, scenarios,
+        et le statut des integrations tierces.
+        """
+        summary = {
+            "house_mode": self._get_house_mode(),
+            "active_profile": self._get_active_profile(),
+            "alerts": self._get_alerts_summary(),
+            "scenarios": self._get_scenarios_summary(),
+            "integrations": self._get_integrations_summary(),
+        }
+        return summary
