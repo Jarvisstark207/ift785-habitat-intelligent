@@ -305,6 +305,13 @@ def get_generic_integration():
     }
 
 
+@app.get("/api/dashboard/summary")
+def get_dashboard_summary():
+    """Retourne le resume unifie de la maison (Facade)"""
+    return {"status": "ok", "summary": _dashboard_facade.get_summary()}
+
+
+
 # ============================================================================
 # DÉMARRAGE
 # ============================================================================
