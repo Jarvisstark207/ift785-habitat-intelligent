@@ -90,3 +90,72 @@ class PhilipsHueAdapter(SmartHomeAdapter):
 
     def get_adapter_name(self) -> str:
         return "philips-hue"
+
+
+class NestAdapter(SmartHomeAdapter):
+    """Adapte l'API Google Nest vers l'interface SmartHomeAdapter.
+
+    L'API Nest utilise des 'traits' et des 'structures'.
+    On les convertit en appareils et commandes generiques.
+    """
+
+    def __init__(self, project_id: str = "nest-project-demo"):
+        self._project_id = project_id
+        self._devices = {
+            "nest_therm_01": {
+                "name": "Thermostat Principal",
+                "type": "thermostat",
+                "ambient_temp": 20.5,
+                "target_temp": 21.0,
+                "mode": "HEAT",
+            },
+            "nest_cam_01": {
+                "name": "Camera Entree",
+                "type": "camera",
+                "streaming": True,
+                "motion_detected": False,
+            },
+        }
+
+    def get_status(self) -> dict:
+        """Traduit le statut de la structure Nest en format generique"""
+        return {
+            "adapter": self.get_adapter_name(),
+            "connected": True,
+            "project_id": self._project_id,
+            "total_devices": len(self._devices),
+            "active_devices": len(self._devices),
+        }
+
+    def get_devices(self) -> List[dict]:
+        """Convertit les 'devices' Nest en appareils generiques"""
+        devices = []
+        for device_id, device in self._devices.items():
+            properties = {
+                k: v for k, v in device.items()
+                if k not in ("name", "type")
+            }
+            devices.append({
+                "id": device_id,
+                "name": device["name"],
+                "type": device["type"],
+                "status": "on",
+                "properties": properties,
+                "source": self.get_adapter_name(),
+            })
+        return devices
+
+    def control_device(self, device_id: str, command: dict) -> dict:
+        """Traduit une commande generique en trait Nest"""
+        if device_id not in self._devices:
+            return {"success": False, "error": f"Device {device_id} not found"}
+        action = command.get("action", "")
+        device = self._devices[device_id]
+        if action == "set_temperature" and device["type"] == "thermostat":
+            device["target_temp"] = command.get("value", 20.0)
+        elif action == "set_mode" and device["type"] == "thermostat":
+            device["mode"] = command.get("value", "HEAT")
+        return {"success": True, "device_id": device_id, "action": action}
+
+    def get_adapter_name(self) -> str:
+        return "nest"
