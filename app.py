@@ -284,6 +284,16 @@ def get_philips_hue_integration():
         "devices": _hue_adapter.get_devices(),
     }
 
+
+@app.get("/api/integrations/nest")
+def get_nest_integration():
+    """Retourne le statut et les appareils Nest (Adapter + Proxy)"""
+    return {
+        "status": "ok",
+        "integration": _nest_adapter.get_status(),
+        "devices": _nest_adapter.get_devices(),
+    }
+
 # ============================================================================
 # DÉMARRAGE
 # ============================================================================
