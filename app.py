@@ -274,6 +274,16 @@ _dashboard_facade.register_adapter(PhilipsHueAdapter())
 _dashboard_facade.register_adapter(NestAdapter())
 _dashboard_facade.register_adapter(GenericAdapter())
 
+
+@app.get("/api/integrations/philips-hue")
+def get_philips_hue_integration():
+    """Retourne le statut et les appareils Philips Hue (Adapter + Proxy)"""
+    return {
+        "status": "ok",
+        "integration": _hue_adapter.get_status(),
+        "devices": _hue_adapter.get_devices(),
+    }
+
 # ============================================================================
 # DÉMARRAGE
 # ============================================================================
