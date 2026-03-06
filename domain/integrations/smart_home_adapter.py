@@ -159,3 +159,67 @@ class NestAdapter(SmartHomeAdapter):
 
     def get_adapter_name(self) -> str:
         return "nest"
+
+
+class GenericAdapter(SmartHomeAdapter):
+    """Adapter generique pour tout systeme domotique non supporte.
+
+    Utilise un protocole HTTP REST standard.
+    Permet d'integrer n'importe quel systeme avec une API basique.
+    """
+
+    def __init__(self, base_url: str = "http://localhost:8080"):
+        self._base_url = base_url
+        self._devices = {
+            "generic_001": {
+                "name": "Prise Connectee Salon",
+                "type": "switch",
+                "active": True,
+                "power_watts": 45.0,
+            },
+            "generic_002": {
+                "name": "Capteur Mouvement",
+                "type": "sensor",
+                "active": True,
+                "last_motion": None,
+            },
+        }
+
+    def get_status(self) -> dict:
+        return {
+            "adapter": self.get_adapter_name(),
+            "connected": True,
+            "base_url": self._base_url,
+            "total_devices": len(self._devices),
+            "active_devices": sum(1 for d in self._devices.values() if d["active"]),
+        }
+
+    def get_devices(self) -> List[dict]:
+        devices = []
+        for device_id, device in self._devices.items():
+            properties = {
+                k: v for k, v in device.items()
+                if k not in ("name", "type", "active")
+            }
+            devices.append({
+                "id": device_id,
+                "name": device["name"],
+                "type": device["type"],
+                "status": "on" if device["active"] else "off",
+                "properties": properties,
+                "source": self.get_adapter_name(),
+            })
+        return devices
+
+    def control_device(self, device_id: str, command: dict) -> dict:
+        if device_id not in self._devices:
+            return {"success": False, "error": f"Device {device_id} not found"}
+        action = command.get("action", "")
+        if action == "turn_on":
+            self._devices[device_id]["active"] = True
+        elif action == "turn_off":
+            self._devices[device_id]["active"] = False
+        return {"success": True, "device_id": device_id, "action": action}
+
+    def get_adapter_name(self) -> str:
+        return "generic"
