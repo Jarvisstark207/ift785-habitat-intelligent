@@ -77,3 +77,41 @@ class LoggingDecorator(SmartHomeDecorator):
         """Vide le journal"""
         self._log.clear()
 
+
+class ValidationDecorator(SmartHomeDecorator):
+    """Decorateur de validation.
+
+    Verifie que les reponses de l'adapter respectent
+    le format attendu par l'interface SmartHomeAdapter.
+    """
+
+    REQUIRED_STATUS_KEYS = {"adapter", "connected", "total_devices"}
+    REQUIRED_DEVICE_KEYS = {"id", "name", "type", "status"}
+
+    def get_status(self) -> dict:
+        result = self._adapter.get_status()
+        missing = self.REQUIRED_STATUS_KEYS - result.keys()
+        if missing:
+            raise ValueError(
+                f"Statut invalide pour {self.get_adapter_name()}: "
+                f"champs manquants {missing}"
+            )
+        return result
+
+    def get_devices(self) -> List[dict]:
+        devices = self._adapter.get_devices()
+        for device in devices:
+            missing = self.REQUIRED_DEVICE_KEYS - device.keys()
+            if missing:
+                raise ValueError(
+                    f"Appareil invalide dans {self.get_adapter_name()}: "
+                    f"champs manquants {missing}"
+                )
+        return devices
+
+    def control_device(self, device_id: str, command: dict) -> dict:
+        if not device_id:
+            raise ValueError("device_id ne peut pas etre vide")
+        if not isinstance(command, dict):
+            raise ValueError("command doit etre un dictionnaire")
+        return self._adapter.control_device(device_id, command)
