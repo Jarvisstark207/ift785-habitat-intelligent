@@ -294,6 +294,17 @@ def get_nest_integration():
         "devices": _nest_adapter.get_devices(),
     }
 
+
+@app.get("/api/integrations/generic")
+def get_generic_integration():
+    """Retourne le statut et les appareils generiques (Adapter + Proxy)"""
+    return {
+        "status": "ok",
+        "integration": _generic_adapter.get_status(),
+        "devices": _generic_adapter.get_devices(),
+    }
+
+
 # ============================================================================
 # DÉMARRAGE
 # ============================================================================
