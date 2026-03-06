@@ -51,3 +51,64 @@ class DashboardFacade:
             "integrations": self._get_integrations_summary(),
         }
         return summary
+
+    def get_widgets(self) -> List[dict]:
+        """Retourne les donnees formatees pour les widgets du dashboard."""
+        widgets = [
+            {
+                "id": "house_mode",
+                "title": "Mode Maison",
+                "type": "status",
+                "data": {"mode": self._get_house_mode()},
+            },
+            {
+                "id": "alerts",
+                "title": "Alertes Actives",
+                "type": "counter",
+                "data": self._get_alerts_summary(),
+            },
+            {
+                "id": "scenarios",
+                "title": "Scenarios",
+                "type": "list",
+                "data": self._get_scenarios_summary(),
+            },
+            {
+                "id": "integrations",
+                "title": "Integrations",
+                "type": "grid",
+                "data": self._get_integrations_summary(),
+            },
+        ]
+        return widgets
+
+    def _get_house_mode(self) -> str:
+        if self._house:
+            return self._house.get_current_mode()
+        return "inconnu"
+
+    def _get_active_profile(self) -> dict:
+        if self._profiles:
+            profile = self._profiles.get_current_profile()
+            if profile:
+                return {"name": profile.name, "strategy": profile.strategy_type}
+        return {"name": None, "strategy": None}
+
+    def _get_alerts_summary(self) -> dict:
+        return {"count": 0, "critical": 0}
+
+    def _get_scenarios_summary(self) -> dict:
+        if self._scenarios:
+            scenarios = self._scenarios.get_all_scenarios()
+            active = [s for s in scenarios if s.is_active]
+            return {"total": len(scenarios), "active": len(active)}
+        return {"total": 0, "active": 0}
+
+    def _get_integrations_summary(self) -> List[dict]:
+        return [
+            {
+                "name": adapter.get_adapter_name(),
+                "status": adapter.get_status(),
+            }
+            for adapter in self._adapters
+        ]
