@@ -311,6 +311,12 @@ def get_dashboard_summary():
     return {"status": "ok", "summary": _dashboard_facade.get_summary()}
 
 
+@app.get("/api/dashboard/widgets")
+def get_dashboard_widgets():
+    """Retourne les widgets du dashboard (Facade)"""
+    widgets = _dashboard_facade.get_widgets()
+    return {"status": "ok", "count": len(widgets), "widgets": widgets}
+
 
 # ============================================================================
 # DÉMARRAGE
