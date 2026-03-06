@@ -23,6 +23,14 @@ from domain.scenarios.scenario_manager import ScenarioManager
 from domain.profiles.profile_manager import ProfileManager
 from domain.house_states.house import House
 from domain.house_states.states import get_state_for_mode
+from domain.integrations.smart_home_adapter import (
+    PhilipsHueAdapter,
+    NestAdapter,
+    GenericAdapter,
+)
+from domain.integrations.cache_proxy import CacheProxy
+from domain.integrations.decorators import LoggingDecorator
+from domain.dashboard.dashboard_facade import DashboardFacade
 
 # ============================================================================
 # CRÉATION APP
@@ -247,6 +255,67 @@ def get_house_mode_history():
     """Retourne l'historique des changements de mode"""
     history = _house.get_mode_history()
     return {"count": len(history), "history": history}
+
+
+# ============================================================================
+# ITERATION 5 - Patterns Structurels (Adapter, Proxy, Facade, Decorator)
+# ============================================================================
+
+_hue_adapter = LoggingDecorator(CacheProxy(PhilipsHueAdapter(), ttl=30))
+_nest_adapter = LoggingDecorator(CacheProxy(NestAdapter(), ttl=30))
+_generic_adapter = LoggingDecorator(CacheProxy(GenericAdapter(), ttl=30))
+
+_dashboard_facade = DashboardFacade(
+    scenario_manager=_scenario_manager,
+    profile_manager=_profile_manager,
+    house=_house,
+)
+_dashboard_facade.register_adapter(PhilipsHueAdapter())
+_dashboard_facade.register_adapter(NestAdapter())
+_dashboard_facade.register_adapter(GenericAdapter())
+
+
+@app.get("/api/integrations/philips-hue")
+def get_philips_hue_integration():
+    """Retourne le statut et les appareils Philips Hue (Adapter + Proxy)"""
+    return {
+        "status": "ok",
+        "integration": _hue_adapter.get_status(),
+        "devices": _hue_adapter.get_devices(),
+    }
+
+
+@app.get("/api/integrations/nest")
+def get_nest_integration():
+    """Retourne le statut et les appareils Nest (Adapter + Proxy)"""
+    return {
+        "status": "ok",
+        "integration": _nest_adapter.get_status(),
+        "devices": _nest_adapter.get_devices(),
+    }
+
+
+@app.get("/api/integrations/generic")
+def get_generic_integration():
+    """Retourne le statut et les appareils generiques (Adapter + Proxy)"""
+    return {
+        "status": "ok",
+        "integration": _generic_adapter.get_status(),
+        "devices": _generic_adapter.get_devices(),
+    }
+
+
+@app.get("/api/dashboard/summary")
+def get_dashboard_summary():
+    """Retourne le resume unifie de la maison (Facade)"""
+    return {"status": "ok", "summary": _dashboard_facade.get_summary()}
+
+
+@app.get("/api/dashboard/widgets")
+def get_dashboard_widgets():
+    """Retourne les widgets du dashboard (Facade)"""
+    widgets = _dashboard_facade.get_widgets()
+    return {"status": "ok", "count": len(widgets), "widgets": widgets}
 
 
 # ============================================================================
