@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Batch Devices - Habitat Intelligent</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .import-card { background: white; border-radius: 12px; padding: 36px; max-width: 720px; margin: 0 auto; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+        .import-card h2 { margin-top: 0; color: #333; border-bottom: 2px solid #8e24aa; padding-bottom: 12px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #555; }
+        textarea { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; box-sizing: border-box; min-height: 200px; transition: border-color 0.2s; }
+        textarea:focus { border-color: #8e24aa; outline: none; box-shadow: 0 0 0 3px rgba(142,36,170,0.12); }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #8e24aa; color: white; }
+        .btn-primary:hover { background: #7b1fa2; }
+        .btn-secondary { background: #f0f0f0; color: #555; }
+        .btn-secondary:hover { background: #e0e0e0; }
+        .btn-example { background: #e3f2fd; color: #1565c0; font-size: 12px; padding: 6px 14px; border-radius: 6px; }
+        .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+        .result-box { margin-top: 24px; padding: 20px; border-radius: 10px; display: none; }
+        .result-success { background: #e8f5e9; border-left: 5px solid #43a047; }
+        .result-error { background: #ffebee; border-left: 5px solid #e53935; }
+        .result-box h3 { margin: 0 0 12px 0; }
+        .result-detail { font-family: monospace; font-size: 13px; background: rgba(0,0,0,0.04); padding: 12px; border-radius: 6px; margin-top: 10px; white-space: pre-wrap; }
+        .device-chip { display: inline-block; background: #e3f2fd; color: #1565c0; padding: 4px 10px; border-radius: 14px; font-size: 12px; margin: 3px; font-family: monospace; }
+        .info-box { background: #f3e5f5; border-left: 4px solid #8e24aa; padding: 14px 18px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; }
+        .info-box strong { color: #6a1b9a; }
+        .progress-indicator { display: none; text-align: center; padding: 20px; color: #888; }
+        .spinner { width: 28px; height: 28px; border: 3px solid #ddd; border-top-color: #8e24aa; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; margin-right: 10px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .rollback-demo { margin-top: 16px; }
+        .rollback-demo label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+        .rollback-demo input[type=checkbox] { width: 18px; height: 18px; accent-color: #e53935; }
+        .rollback-label { color: #c62828; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Habitat Intelligent</h1>
+        <p class="subtitle">Import batch de devices</p>
+    </header>
+
+    <div class="import-card">
+        <h2>Import en lot (Unit of Work)</h2>
+
+        <div class="info-box">
+            <strong>Transaction atomique :</strong> tous les devices sont créés en une seule transaction.
+            Si un device est invalide, <strong>toute la transaction est annulée</strong> (rollback).
+        </div>
+
+        <div class="form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+                <label style="margin:0">Devices JSON <span style="color:#e53935">*</span></label>
+                <div style="display:flex; gap:8px">
+                    <button class="btn btn-example" onclick="loadExample('valid')">Exemple valide</button>
+                    <button class="btn btn-example" onclick="loadExample('invalid')">Exemple avec erreur</button>
+                </div>
+            </div>
+            <textarea id="json-input" placeholder='[
+  {"device_id": "lamp-001", "name": "Lampe salon", "room_name": "salon", "device_type": "light", "manufacturer": "Philips"},
+  {"device_id": "thermo-001", "name": "Thermostat", "room_name": "cuisine", "device_type": "thermostat", "manufacturer": "Nest"}
+]'></textarea>
+        </div>
+
+        <div class="rollback-demo">
+            <label>
+                <input type="checkbox" id="force-rollback">
+                <span class="rollback-label">Forcer le rollback (démonstration)</span>
+            </label>
+            <div style="font-size:12px; color:#999; margin-top:4px; margin-left:26px">
+                Insère les données puis annule la transaction pour démontrer le mécanisme de rollback.
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <a href="/devices" class="btn btn-secondary">Annuler</a>
+            <button class="btn btn-primary" onclick="importDevices()">Importer</button>
+        </div>
+
+        <div class="progress-indicator" id="progress">
+            <div class="spinner"></div> Transaction en cours...
+        </div>
+
+        <!-- Résultat succès -->
+        <div class="result-box result-success" id="result-success">
+            <h3>✓ Transaction validée</h3>
+            <p id="result-success-msg"></p>
+            <div id="result-chips"></div>
+            <div class="result-detail" id="result-detail-success"></div>
+        </div>
+
+        <!-- Résultat rollback -->
+        <div class="result-box result-error" id="result-rollback">
+            <h3>↩ Transaction annulée (rollback)</h3>
+            <p id="result-rollback-msg"></p>
+            <div class="result-detail" id="result-detail-rollback"></div>
+        </div>
+    </div>
+
+    <div style="margin-top:16px; max-width:720px; margin-left:auto; margin-right:auto">
+        <a href="/devices" style="color:#8e24aa">← Retour à la liste des devices</a>
+    </div>
+</div>
+
+<script>
+    const EXAMPLES = {
+        valid: JSON.stringify([
+            {"device_id": "lamp-salon-01", "name": "Lampe salon principale", "room_name": "salon", "device_type": "light", "manufacturer": "Philips"},
+            {"device_id": "thermo-cuisine-01", "name": "Thermostat cuisine", "room_name": "cuisine", "device_type": "thermostat", "manufacturer": "Nest"},
+            {"device_id": "cam-entree-01", "name": "Caméra entrée", "room_name": "entree", "device_type": "camera", "manufacturer": "Arlo"}
+        ], null, 2),
+        invalid: JSON.stringify([
+            {"device_id": "valid-device", "name": "Device valide", "room_name": "salon"},
+            {"name": "Device sans ID - provoque rollback"}
+        ], null, 2)
+    };
+
+    function loadExample(type) {
+        document.getElementById('json-input').value = EXAMPLES[type];
+        hideResults();
+    }
+
+    async function importDevices() {
+        hideResults();
+        const raw = document.getElementById('json-input').value.trim();
+        const forceRollback = document.getElementById('force-rollback').checked;
+
+        if (!raw) {
+            alert('Veuillez saisir du JSON valide.');
+            return;
+        }
+
+        let devices;
+        try {
+            devices = JSON.parse(raw);
+        } catch(e) {
+            showRollback('JSON invalide : ' + e.message, null);
+            return;
+        }
+
+        if (!Array.isArray(devices)) {
+            showRollback('Le JSON doit être un tableau de devices.', null);
+            return;
+        }
+
+        document.getElementById('progress').style.display = 'block';
+
+        try {
+            let data;
+            if (forceRollback) {
+                // Utilise l'endpoint rollback-test pour démontrer le rollback
+                const resp = await fetch('/api/transactions/rollback-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ force_rollback: true, devices: devices })
+                });
+                data = await resp.json();
+            } else {
+                const resp = await fetch('/api/devices/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(devices)
+                });
+                data = await resp.json();
+            }
+
+            document.getElementById('progress').style.display = 'none';
+
+            if (data.status === 'ok' && !data.rolled_back && data.action !== 'rollback') {
+                showSuccess(data);
+            } else {
+                showRollback(data.message || 'Transaction annulée.', data);
+            }
+        } catch(e) {
+            document.getElementById('progress').style.display = 'none';
+            showRollback('Erreur réseau : ' + e.message, null);
+        }
+    }
+
+    function showSuccess(data) {
+        const box = document.getElementById('result-success');
+        document.getElementById('result-success-msg').textContent =
+            `${data.created} device(s) créés et persistés en SQLite avec succès.`;
+        const chips = document.getElementById('result-chips');
+        chips.innerHTML = (data.device_ids || []).map(id =>
+            `<span class="device-chip">${id}</span>`
+        ).join('');
+        document.getElementById('result-detail-success').textContent =
+            JSON.stringify(data, null, 2);
+        box.style.display = 'block';
+    }
+
+    function showRollback(msg, data) {
+        const box = document.getElementById('result-rollback');
+        document.getElementById('result-rollback-msg').textContent = msg;
+        const detail = document.getElementById('result-detail-rollback');
+        if (data) {
+            detail.textContent = JSON.stringify(data, null, 2);
+        } else {
+            detail.textContent = msg;
+        }
+        box.style.display = 'block';
+    }
+
+    function hideResults() {
+        document.getElementById('result-success').style.display = 'none';
+        document.getElementById('result-rollback').style.display = 'none';
+        document.getElementById('progress').style.display = 'none';
+    }
+</script>
+</body>
+</html>
