@@ -33,3 +33,11 @@ class SQLAlchemyUnitOfWork:
             self.rollback()
         self.session.close()
         return False
+
+    def commit(self):
+        """Valide toutes les operations de l'unite de travail"""
+        self.session.commit()
+
+    def rollback(self):
+        """Annule toutes les operations de l'unite de travail"""
+        self.session.rollback()
