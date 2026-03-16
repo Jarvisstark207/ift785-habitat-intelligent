@@ -1,6 +1,5 @@
 """Tests pour la couche infrastructure"""
 import sqlite3
-import os
 import pytest
 from unittest.mock import MagicMock, patch
 from domain.models.sensor_reading import SensorReading
