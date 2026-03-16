@@ -30,3 +30,28 @@ class DeviceRecord(Base):
             "manufacturer": self.manufacturer,
             "status": self.status,
         }
+
+
+class SensorReadingRecord(Base):
+    """Modele SQLAlchemy pour les lectures de capteurs"""
+
+    __tablename__ = "sensor_readings_v2"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sensor_id = Column(String, nullable=False)
+    location = Column(String, nullable=False)
+    type = Column(String, nullable=False)
+    value = Column(Float, nullable=False)
+    unit = Column(String, nullable=False)
+    timestamp = Column(String, nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "sensor_id": self.sensor_id,
+            "location": self.location,
+            "type": self.type,
+            "value": self.value,
+            "unit": self.unit,
+            "timestamp": self.timestamp,
+        }
