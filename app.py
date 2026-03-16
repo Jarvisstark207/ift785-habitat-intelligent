@@ -424,6 +424,48 @@ def devices_import_page(request: Request):
     return templates.TemplateResponse("devices_import.html", {"request": request})
 
 
+@app.post("/api/transactions/rollback-test")
+def test_transaction_rollback(data: dict = None):
+    """
+    Demonstration du mecanisme de rollback.
+    Insere des donnees puis provoque un rollback si force_rollback=true.
+    """
+    data = data or {}
+    force_rollback = data.get("force_rollback", True)
+    test_devices = data.get("devices", [
+        {"device_id": "test-rollback-1", "name": "Test Device 1"},
+        {"device_id": "test-rollback-2", "name": "Test Device 2"},
+    ])
+
+    inserted = []
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        for device_data in test_devices:
+            record = DeviceRecord(
+                device_id=device_data.get("device_id", ""),
+                name=device_data.get("name", ""),
+            )
+            uow.devices.save(record)
+            inserted.append(device_data.get("device_id", ""))
+
+        if force_rollback:
+            uow.rollback()
+            return {
+                "status": "ok",
+                "action": "rollback",
+                "message": "Transaction annulee avec succes",
+                "attempted_inserts": inserted,
+                "persisted": False,
+            }
+        uow.commit()
+
+    return {
+        "status": "ok",
+        "action": "commit",
+        "message": "Transaction validee",
+        "persisted_devices": inserted,
+        "persisted": True,
+    }
+
 
 # ============================================================================
 # DÉMARRAGE
