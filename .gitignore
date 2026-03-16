@@ -63,3 +63,4 @@ habitat_ift785.db
 .mypy_cache/
 .ruff_cache/
 .pycache/
+.idea/
