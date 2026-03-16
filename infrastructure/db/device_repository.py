@@ -36,3 +36,27 @@ class DeviceRepository:
     def find_all(self) -> List[DeviceRecord]:
         """Retourne tous les devices"""
         return self.session.query(DeviceRecord).all()
+
+    def find_by_type(self, device_type: str) -> List[DeviceRecord]:
+        """Recherche les devices par type"""
+        return self.session.query(DeviceRecord).filter_by(
+            device_type=device_type
+        ).all()
+
+    def find_by_room(self, room_name: str) -> List[DeviceRecord]:
+        """Recherche les devices par piece"""
+        return self.session.query(DeviceRecord).filter_by(
+            room_name=room_name
+        ).all()
+
+    def delete(self, device_id: str) -> bool:
+        """Supprime un device par son identifiant"""
+        device = self.find_by_id(device_id)
+        if device:
+            self.session.delete(device)
+            return True
+        return False
+
+    def count(self) -> int:
+        """Retourne le nombre total de devices"""
+        return self.session.query(DeviceRecord).count()
