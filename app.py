@@ -406,6 +406,25 @@ def update_stored_device(device_id: str, data: dict):
         return {"status": "ok", "device": device.to_dict()}
 
 
+@app.get("/devices", response_class=HTMLResponse)
+def devices_list_page(request: Request):
+    """Page CRUD des devices (Iteration 6 - bonus)"""
+    return templates.TemplateResponse("devices.html", {"request": request})
+
+
+@app.get("/devices/new", response_class=HTMLResponse)
+def devices_new_page(request: Request):
+    """Formulaire creation d'un device (Iteration 6 - bonus)"""
+    return templates.TemplateResponse("devices_new.html", {"request": request})
+
+
+@app.get("/devices/import", response_class=HTMLResponse)
+def devices_import_page(request: Request):
+    """Interface import batch de devices (Iteration 6 - bonus)"""
+    return templates.TemplateResponse("devices_import.html", {"request": request})
+
+
+
 # ============================================================================
 # DÉMARRAGE
 # ============================================================================
