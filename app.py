@@ -3,7 +3,10 @@ Wrapper pour l'évaluateur (Iteration 2)
 """
 
 from fastapi import FastAPI, Query
-from typing import Optional
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+from typing import Optional, List
 import threading
 import uvicorn
 
@@ -31,12 +34,17 @@ from domain.integrations.smart_home_adapter import (
 from domain.integrations.cache_proxy import CacheProxy
 from domain.integrations.decorators import LoggingDecorator
 from domain.dashboard.dashboard_facade import DashboardFacade
+from infrastructure.db.sqlalchemy_models import DeviceRecord
+from infrastructure.db.sqlalchemy_session import get_default_session_factory
+from infrastructure.db.unit_of_work import SQLAlchemyUnitOfWork
+from infrastructure.di.container import build_default_container
 
 # ============================================================================
 # CRÉATION APP
 # ============================================================================
 
 app = FastAPI(title="Habitat Intelligent")
+templates = Jinja2Templates(directory="templates")
 
 # Services
 _repo = SQLiteSensorRepository()
@@ -316,6 +324,48 @@ def get_dashboard_widgets():
     """Retourne les widgets du dashboard (Facade)"""
     widgets = _dashboard_facade.get_widgets()
     return {"status": "ok", "count": len(widgets), "widgets": widgets}
+
+
+# ============================================================================
+# ITERATION 6 - Repository + Unit of Work + DI Container
+# ============================================================================
+
+_session_factory = get_default_session_factory()
+_di_container = build_default_container()
+
+
+@app.post("/api/devices/batch")
+def create_devices_batch(devices: List[dict]):
+    """
+    Cree plusieurs devices en une seule transaction (Unit of Work).
+    Si un device est invalide, toute la transaction est annulee.
+    """
+    created = []
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        try:
+            for data in devices:
+                if not data.get("device_id") or not data.get("name"):
+                    uow.rollback()
+                    return {
+                        "status": "error",
+                        "message": "Chaque device doit avoir device_id et name",
+                        "rolled_back": True,
+                    }
+                record = DeviceRecord(
+                    device_id=data["device_id"],
+                    name=data["name"],
+                    room_name=data.get("room_name", ""),
+                    device_type=data.get("device_type", ""),
+                    manufacturer=data.get("manufacturer", ""),
+                    status=data.get("status", "active"),
+                )
+                uow.devices.save(record)
+                created.append(data["device_id"])
+            uow.commit()
+        except Exception as e:
+            uow.rollback()
+            return {"status": "error", "message": str(e), "rolled_back": True}
+    return {"status": "ok", "created": len(created), "device_ids": created}
 
 
 # ============================================================================
