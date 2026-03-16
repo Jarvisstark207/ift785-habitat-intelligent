@@ -21,3 +21,7 @@ def create_session_factory(db_url: str = None):
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
+
+def get_default_session_factory():
+    """Retourne la fabrique de sessions par defaut (SQLite)"""
+    return create_session_factory()
