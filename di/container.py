@@ -38,3 +38,30 @@ class DIContainer:
     def registered_services(self) -> list:
         """Retourne la liste des services enregistres"""
         return list(self._factories.keys())
+
+
+def build_default_container() -> DIContainer:
+    """Construit le container DI par defaut avec les services de l'application"""
+    from infrastructure.db.sqlalchemy_session import get_default_session_factory
+    from infrastructure.db.unit_of_work import SQLAlchemyUnitOfWork
+    from application.services.device_service import DeviceService
+
+    container = DIContainer()
+
+    session_factory = get_default_session_factory()
+    container.register(
+        "session_factory",
+        lambda: session_factory,
+        singleton=True
+    )
+    container.register(
+        "unit_of_work",
+        lambda: SQLAlchemyUnitOfWork(session_factory)
+    )
+    container.register(
+        "device_service",
+        lambda: DeviceService(),
+        singleton=True
+    )
+
+    return container
