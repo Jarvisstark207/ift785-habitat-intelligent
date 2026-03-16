@@ -368,6 +368,44 @@ def create_devices_batch(devices: List[dict]):
     return {"status": "ok", "created": len(created), "device_ids": created}
 
 
+@app.get("/api/db/devices")
+def list_stored_devices():
+    """Liste les devices persistes via SQLAlchemy (Iteration 6)"""
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        devices = uow.devices.find_all()
+        return {"devices": [d.to_dict() for d in devices]}
+
+
+@app.delete("/api/db/devices/{device_id}")
+def delete_stored_device(device_id: str):
+    """Supprime un device persiste via SQLAlchemy (Iteration 6)"""
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        deleted = uow.devices.delete(device_id)
+        if deleted:
+            uow.commit()
+            return {"status": "ok", "message": f"Device {device_id} supprime"}
+        return {"status": "error", "message": "Device non trouve"}
+
+
+@app.put("/api/db/devices/{device_id}")
+def update_stored_device(device_id: str, data: dict):
+    """Met a jour un device persiste via SQLAlchemy (Iteration 6)"""
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        device = uow.devices.find_by_id(device_id)
+        if not device:
+            return {"status": "error", "message": "Device non trouve"}
+        if "name" in data:
+            device.name = data["name"]
+        if "room_name" in data:
+            device.room_name = data["room_name"]
+        if "device_type" in data:
+            device.device_type = data["device_type"]
+        if "manufacturer" in data:
+            device.manufacturer = data["manufacturer"]
+        uow.commit()
+        return {"status": "ok", "device": device.to_dict()}
+
+
 # ============================================================================
 # DÉMARRAGE
 # ============================================================================
