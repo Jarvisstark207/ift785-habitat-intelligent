@@ -1,69 +1,115 @@
 iteration: 10
-name: "Orchestration Complete + Deploiement Avance"
-description: "Scalabilite horizontale, Load Balancer, Monitoring, Docker Swarm/Compose, Metaclasses"
+name: "Conteneurisation et Orchestration Docker"
+description: "Dockerfile, Docker Compose, reverse proxy Nginx, PostgreSQL production, Mosquitto, variables d'environnement, health checks"
 
 functionality:
   weight: 40
   checks:
     - name: "Application demarre"
-      points: 6
+      points: 4
       type: "import_test"
       target: "app"
-    
-    - name: "Scalabilite horizontale"
-      points: 12
-      type: "deployment_check"
-      min_instances: 3
-    
-    - name: "Load balancer"
+
+    - name: "Dockerfile valide"
       points: 10
-      type: "endpoint_check"
-      endpoints:
-        - "/api/lb/status"
-        - "/api/lb/instances"
-    
-    - name: "Monitoring actif"
-      points: 12
-      type: "endpoint_check"
-      endpoints:
-        - "/metrics"
-        - "/api/monitoring/health"
-        - "/api/monitoring/stats"
+      type: "dockerfile_check"
+      checks:
+        - "Dockerfile existe"
+        - "Image de base officielle Python"
+        - ".dockerignore present"
+        - "Image buildable sans erreur"
+
+    - name: "docker-compose.yml complet"
+      points: 14
+      type: "compose_check"
+      required_services:
+        - name: "backend"
+          must_build: true
+        - name: "db"
+          image_prefix: "postgres"
+        - name: "mosquitto"
+          image_prefix: "eclipse-mosquitto"
+        - name: "nginx"
+          image_prefix: "nginx"
+      required_features:
+        - "volumes nommes"
+        - "depends_on avec condition"
+        - "healthcheck par service"
+        - "env_file ou environment"
+
+    - name: "Configuration environnement"
+      points: 6
+      type: "file_check"
+      required_files:
+        - ".env.example"
+        - "nginx/nginx.conf"
+        - "mosquitto/mosquitto.conf"
+      description: "Fichiers de configuration des services externes"
+
+    - name: "Stack demarre en une commande"
+      points: 6
+      type: "compose_up_check"
+      command: "docker compose up --build -d"
+      wait_seconds: 30
+      health_endpoint: "/api/health"
 
 tests:
   weight: 30
-  min_coverage: 85
-  min_tests: 68
+  min_coverage: 80
+  min_tests: 55
   test_structure:
     unit:
-      min_tests: 36
-      weight: 50
+      min_tests: 25
+      weight: 40
       required_files:
-        - "tests/unit/test_load_balancer.py"
-        - "tests/unit/test_monitoring.py"
-        - "tests/unit/test_metaclasses.py"
-    
+        - "tests/unit/test_config.py"
+        - "tests/unit/test_database_connection.py"
+
     integration:
-      min_tests: 24
-      weight: 35
+      min_tests: 20
+      weight: 40
       required_files:
-        - "tests/integration/test_scaling.py"
-        - "tests/integration/test_multi_instances.py"
-    
+        - "tests/integration/test_postgres_repository.py"
+        - "tests/integration/test_compose_services.py"
+
     api:
-      min_tests: 8
-      weight: 15
+      min_tests: 10
+      weight: 20
       required_files:
-        - "tests/api/test_monitoring_endpoints.py"
+        - "tests/api/test_health_endpoints.py"
+        - "tests/api/test_full_stack.py"
 
 quality:
   weight: 20
   max_flake8_errors: 3
   max_complexity: 8
   code_duplication: false
+  required_files_quality:
+    - "Dockerfile"
+    - "docker-compose.yml"
+    - ".env.example"
 
 git:
   weight: 10
   min_commits_per_person: 15
   min_contribution_ratio: 35
   conventional_commits_ratio: 85
+
+bonus:
+  max_points: 10
+  cap_total: 100
+  description: "Interface graphique optionnelle - compense les pertes sur les criteres principaux"
+  checks:
+    - name: "Page Scenarios automatises"
+      points: 5
+      type: "frontend_check"
+      description: "Liste des scenarios, bouton Executer, affichage des conditions (fonctionnalite backend iter 4 rendue visible)"
+      urls:
+        - "/scenarios"
+    - name: "Dashboard monitoring et metriques"
+      points: 5
+      type: "frontend_check"
+      description: "Visualisation des services actifs, statut de chaque conteneur et metriques de sante"
+      urls:
+        - "/monitoring"
+        - "/monitoring/instances"

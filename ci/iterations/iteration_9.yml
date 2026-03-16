@@ -1,6 +1,6 @@
 iteration: 9
-name: "Patterns Resilience Distribuee"
-description: "Circuit Breaker, Retry, Timeout, Bulkhead, Health Check - Systeme distribue tolerant aux pannes"
+name: "Patterns Resilience Distribuee + Metaclasses"
+description: "Circuit Breaker, Retry, Timeout, Bulkhead, Health Check + Metaclasses Python pour factories dynamiques"
 
 functionality:
   weight: 40
@@ -9,28 +9,37 @@ functionality:
       points: 6
       type: "import_test"
       target: "app"
-    
+
     - name: "Multi-capteurs distribues"
-      points: 12
+      points: 8
       type: "endpoint_check"
       endpoints:
         - "/api/sensors/distributed"
         - "/api/sensors/{id}/health"
-    
+
     - name: "Resilience patterns"
-      points: 14
+      points: 10
       type: "pattern_detection"
       patterns:
         - "CircuitBreaker"
         - "Retry"
         - "HealthCheck"
-    
+
     - name: "Tolerance pannes"
       points: 8
       type: "endpoint_check"
       endpoints:
         - "/api/health"
+        - "/api/readiness"
         - "/api/status/services"
+
+    - name: "Metaclasses Python"
+      points: 8
+      type: "pattern_detection"
+      patterns:
+        - "Metaclass"
+        - "DeviceFactory"
+      description: "Metaclasse generant automatiquement les factories de devices selon configuration"
 
 tests:
   weight: 30
@@ -44,14 +53,15 @@ tests:
         - "tests/unit/test_circuit_breaker.py"
         - "tests/unit/test_retry.py"
         - "tests/unit/test_health_check.py"
-    
+        - "tests/unit/test_metaclasses.py"
+
     integration:
       min_tests: 22
       weight: 35
       required_files:
         - "tests/integration/test_distributed_sensors.py"
         - "tests/integration/test_fault_tolerance.py"
-    
+
     api:
       min_tests: 8
       weight: 15
@@ -69,3 +79,21 @@ git:
   min_commits_per_person: 14
   min_contribution_ratio: 35
   conventional_commits_ratio: 82
+
+bonus:
+  max_points: 10
+  cap_total: 100
+  description: "Interface graphique optionnelle - compense les pertes sur les criteres principaux"
+  checks:
+    - name: "Page Integrations tierces avec statut sante"
+      points: 5
+      type: "frontend_check"
+      description: "Tableau de bord visuel des integrations (Philips Hue, Nest, Generic) avec indicateur circuit breaker (vert/orange/rouge)"
+      urls:
+        - "/integrations"
+    - name: "Interface configuration des alertes"
+      points: 5
+      type: "frontend_check"
+      description: "Formulaire de configuration des seuils d'alertes (fonctionnalite backend iter 2 rendue visible)"
+      urls:
+        - "/alerts/config"

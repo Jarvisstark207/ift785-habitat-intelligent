@@ -1,26 +1,70 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Script d'evaluation automatique avec configuration par iteration
+Script d'évaluation automatique IFT785
+Supporte les branches iteration_X et iteration-X (underscore OU tiret)
 """
 
+import ast
 import json
 import os
-import ast
+import re
 import subprocess
+import sys
 import yaml
 from pathlib import Path
 from datetime import datetime
 
+# Symboles visuels (encodage propre)
+OK   = "[OK]"
+WARN = "[!!]"
+FAIL = "[XX]"
+
+
+# ---------------------------------------------------------------------------
+# Normalisation du numéro d'itération
+# ---------------------------------------------------------------------------
+
+def _detect_iteration() -> str:
+    """
+    Extrait le numéro d'itération depuis le nom de branche.
+    Accepte indifféremment 'iteration_6', 'iteration-6', 'iteration6'.
+    Retourne '0' si aucun numéro trouvé.
+    """
+    branch = (
+        os.getenv("CI_MERGE_REQUEST_SOURCE_BRANCH_NAME", "")
+        or os.getenv("CI_COMMIT_BRANCH", "")
+        or os.getenv("ITERATION", "")
+    )
+
+    # Normaliser tirets et underscores avant la recherche
+    branch_normalized = branch.replace("-", "_")
+    match = re.search(r"iteration_(\d+)", branch_normalized, re.IGNORECASE)
+    if match:
+        return match.group(1)
+
+    # Si ITERATION est directement un nombre
+    if os.getenv("ITERATION", "").isdigit():
+        return os.getenv("ITERATION")
+
+    return "0"
+
+
+# ---------------------------------------------------------------------------
+# Classe principale
+# ---------------------------------------------------------------------------
 
 class CodeEvaluator:
+
+    CONFIG_DIR = "ci/iterations"
+
     def __init__(self):
-        self.iteration = os.getenv("ITERATION", "1")
-        self.config = self.load_iteration_config()
-        self.score = 0
-        self.max_score = 100
-        self.details = []
+        self.iteration = _detect_iteration()
+        self.config    = self._load_config()
+        self.details   = []
         self.contributors = {}
         self.excluded_files = self._load_excluded_files()
+
         # Auteurs à exclure de l'évaluation (demander par le professeur)
         self.excluded_authors = {
             "ngankam",
@@ -33,1209 +77,924 @@ class CodeEvaluator:
             "mouhamadou.mourtala.mbow@usherbrooke.ca",
         }
 
-    def _load_excluded_files(self):
-        """Charge liste fichiers a exclure de l'evaluation"""
+
+        print(f"\n{'='*70}")
+        print(f"  EVALUATION AUTOMATIQUE IFT785 — Itération {self.iteration}")
+        print(f"  {self.config.get('name', '(config non trouvée)')}")
+        print(f"{'='*70}\n")
+
+    # ------------------------------------------------------------------
+    # Configuration
+    # ------------------------------------------------------------------
+
+    def _load_config(self) -> dict:
+        """Charge le YAML de l'itération. Cherche avec _ ET avec -."""
+        candidates = [
+            f"{self.CONFIG_DIR}/iteration_{self.iteration}.yml",
+            f"{self.CONFIG_DIR}/iteration-{self.iteration}.yml",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    return yaml.safe_load(f)
+
+        print(f"{WARN} Config introuvable pour itération {self.iteration}, "
+              f"utilisation de iteration_1.yml par défaut")
+        fallback = f"{self.CONFIG_DIR}/iteration_1.yml"
+        if os.path.exists(fallback):
+            with open(fallback, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+        return {}
+
+    def _load_excluded_files(self) -> set:
         excluded = set()
-        exclude_file = ".evaluation_exclude"
-
-        if not os.path.exists(exclude_file):
+        path = ".evaluation_exclude"
+        if not os.path.exists(path):
             return excluded
-
-        with open(exclude_file, "r") as f:
+        with open(path, "r") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#"):
                     excluded.add(line.rstrip("/"))
-
         return excluded
 
-    def _should_exclude_file(self, filepath):
-        """Verifie si un fichier doit etre exclu"""
-        filepath_str = str(filepath)
-
-        # Exclusions systeme
-        if any(x in filepath_str for x in ["venv", "test", "__pycache__", ".git"]):
+    def _should_exclude(self, filepath: str) -> bool:
+        if any(x in filepath for x in ["venv", "test", "__pycache__", ".git"]):
             return True
-
-        # Exclusions configurees
-        for excluded in self.excluded_files:
-            if excluded in filepath_str or filepath_str.startswith(excluded):
+        for ex in self.excluded_files:
+            if ex in filepath or filepath.startswith(ex):
                 return True
-
         return False
 
-    def load_iteration_config(self):
-        """Charge config iteration"""
-        config_file = f"ci/iterations/iteration_{self.iteration}.yml"
-        if not os.path.exists(config_file):
-            print(f"Config {config_file} introuvable, utilisation iteration 1")
-            config_file = "ci/iterations/iteration_1.yml"
+    # ------------------------------------------------------------------
+    # Helpers AST
+    # ------------------------------------------------------------------
 
-        with open(config_file, "r") as f:
-            return yaml.safe_load(f)
+    def _source_files(self):
+        """Itère sur les fichiers Python source (hors exclusions)."""
+        for p in Path(".").rglob("*.py"):
+            if not self._should_exclude(str(p)):
+                yield p
 
-    def get_contributors(self):
-        """Extrait contributeurs et statistiques"""
-        result = subprocess.run(
-            ["git", "log", "--format=%aN|%aE", "--all"], capture_output=True, text=True
-        )
-
-        contributors = {}
-        for line in result.stdout.strip().split("\n"):
-            if "|" in line and line.strip():
-                name, email = line.split("|")
-
-                # NOUVEAU: Ignorer les auteurs exclus (prof)
-                if name in self.excluded_authors or email in self.excluded_authors:
-                    continue
-
-                if name not in contributors:
-                    contributors[name] = {
-                        "email": email,
-                        "commits": 0,
-                        "lines_added": 0,
-                    }
-                contributors[name]["commits"] += 1
-
-        # Stats lignes par auteur
-        result = subprocess.run(
-            ["git", "log", "--numstat", "--format=%aN", "--all"],
-            capture_output=True,
-            text=True,
-        )
-
-        current_author = None
-        for line in result.stdout.split("\n"):
-            if line and "\t" not in line:
-                current_author = line
-                # NOUVEAU: Ignorer si auteur exclu
-                if current_author in self.excluded_authors:
-                    current_author = None
-            elif "\t" in line and current_author:
-                parts = line.split("\t")
-                if len(parts) >= 2 and parts[0].isdigit():
-                    contributors[current_author]["lines_added"] += int(parts[0])
-
-        self.contributors = contributors
-        return contributors
-
-    def analyze_contribution_balance(self):
-        """Verifie equilibre contribution"""
-        if not self.contributors:
-            return False, {}
-
-        total_commits = sum(c["commits"] for c in self.contributors.values())
-        ratios = {
-            name: round((c["commits"] / total_commits) * 100, 1)
-            for name, c in self.contributors.items()
-        }
-
-        min_ratio = self.config["git"].get("min_contribution_ratio", 30)
-        balanced = min(ratios.values()) >= min_ratio
-
-        return balanced, ratios
-
-    def check_conventional_commits(self):
-        """Verifie format commits conventionnels"""
-        result = subprocess.run(
-            ["git", "log", "--format=%s", "--all"], capture_output=True, text=True
-        )
-
-        messages = result.stdout.strip().split("\n")
-        conventional_pattern = (
-            r"^(feat|fix|docs|style|refactor|test|chore|perf)(\(.+\))?:"
-        )
-
-        import re
-
-        conventional_count = sum(
-            1 for msg in messages if re.match(conventional_pattern, msg)
-        )
-
-        ratio = (conventional_count / len(messages)) * 100 if messages else 0
-        return ratio
-
-    def evaluate_functionality(self):
-        """Evalue fonctionnalite selon config"""
-        points = 0
-        weight = self.config["functionality"]["weight"]
-        checks = self.config["functionality"]["checks"]
-
-        total_check_points = sum(c["points"] for c in checks)
-
-        for check in checks:
-            check_points = 0
-            check_type = check["type"]
-
-            if check_type == "import_test":
-                try:
-                    result = subprocess.run(
-                        ["python", "-c", f'import {check["target"]}; print("OK")'],
-                        capture_output=True,
-                        timeout=10,
-                    )
-                    if result.returncode == 0:
-                        check_points = check["points"]
-                        self.details.append(
-                            f"✓ {check['name']} ({check_points}/{check['points']})"
-                        )
-                    else:
-                        self.details.append(f"✗ {check['name']} (0/{check['points']})")
-                except:
-                    self.details.append(
-                        f"✗ {check['name']} - erreur (0/{check['points']})"
-                    )
-
-            elif check_type == "class_detection":
-                classes_found = self._find_classes()
-                num_classes = len(classes_found)
-                min_classes = check.get("min_classes", 0)
-
-                if num_classes >= min_classes:
-                    check_points = check["points"]
-                    self.details.append(
-                        f"✓ {check['name']}: {num_classes} classes ({check_points}/{check['points']})"
-                    )
-                else:
-                    partial = int((num_classes / min_classes) * check["points"])
-                    check_points = partial
-                    self.details.append(
-                        f"⚠ {check['name']}: {num_classes}/{min_classes} classes ({partial}/{check['points']})"
-                    )
-
-            elif check_type == "endpoint_check":
-                if os.path.exists("app.py"):
-                    with open("app.py", "r") as f:
-                        content = f.read()
-
-                        # Support endpoint unique ou multiple
-                        if "endpoint" in check:
-                            # Endpoint unique
-                            endpoint = check["endpoint"]
-                            if (
-                                f'@app.get("{endpoint}")' in content
-                                or f"@app.get('{endpoint}')" in content
-                                or f'@app.post("{endpoint}")' in content
-                                or f"@app.post('{endpoint}')" in content
-                            ):
-                                check_points = check["points"]
-                                self.details.append(
-                                    f"✓ {check['name']} ({check_points}/{check['points']})"
-                                )
-                            else:
-                                self.details.append(
-                                    f"✗ {check['name']} (0/{check['points']})"
-                                )
-
-                        elif "endpoints" in check:
-                            # Endpoints multiples
-                            endpoints = check["endpoints"]
-                            found = []
-                            for ep in endpoints:
-                                if (
-                                    f'@app.get("{ep}")' in content
-                                    or f"@app.get('{ep}')" in content
-                                    or f'@app.post("{ep}")' in content
-                                    or f"@app.post('{ep}')" in content
-                                ):
-                                    found.append(ep)
-
-                            if len(found) == len(endpoints):
-                                check_points = check["points"]
-                                self.details.append(
-                                    f"✓ {check['name']}: tous presents ({check_points}/{check['points']})"
-                                )
-                            elif len(found) > 0:
-                                partial = int(
-                                    (len(found) / len(endpoints)) * check["points"]
-                                )
-                                check_points = partial
-                                self.details.append(
-                                    f"⚠ {check['name']}: {len(found)}/{len(endpoints)} endpoints ({partial}/{check['points']})"
-                                )
-                            else:
-                                self.details.append(
-                                    f"✗ {check['name']}: aucun endpoint (0/{check['points']})"
-                                )
-
-            elif check_type == "pattern_detection":
-                patterns = check.get("patterns", [])
-                found_patterns = self._detect_patterns(patterns)
-                num_found = len(found_patterns)
-                num_required = len(patterns)
-
-                if num_found == num_required:
-                    check_points = check["points"]
-                    patterns_str = ", ".join(found_patterns)
-                    self.details.append(
-                        f"✓ {check['name']}: {patterns_str} ({check_points}/{check['points']})"
-                    )
-                elif num_found > 0:
-                    partial = int((num_found / num_required) * check["points"])
-                    check_points = partial
-                    patterns_str = ", ".join(found_patterns)
-                    self.details.append(
-                        f"⚠ {check['name']}: {patterns_str} ({num_found}/{num_required}) ({partial}/{check['points']})"
-                    )
-                else:
-                    self.details.append(
-                        f"✗ {check['name']}: aucun pattern detecte (0/{check['points']})"
-                    )
-
-            points += check_points
-
-        score = (points / total_check_points) * weight
-        return score
-
-    def evaluate_tests(self):
-        """Evalue tests selon config"""
-        points = 0
-        weight = self.config["tests"]["weight"]
-
-        # Verification structure tests si definie
-        if "test_structure" in self.config["tests"]:
-            points += self._evaluate_test_structure()
-        else:
-            # Mode simple (iteration 1)
-            points += self._evaluate_tests_simple()
-
-        # Couverture (toujours evaluee)
-        min_cov = self.config["tests"]["min_coverage"]
-        if os.path.exists("coverage.xml"):
+    def _find_classes(self) -> list:
+        classes = []
+        for p in self._source_files():
             try:
-                import xml.etree.ElementTree as ET
+                tree = ast.parse(p.read_text(encoding="utf-8", errors="ignore"))
+                classes += [n.name for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
+            except Exception:
+                pass
+        return classes
 
-                tree = ET.parse("coverage.xml")
-                coverage = float(tree.getroot().attrib.get("line-rate", 0)) * 100
-
-                cov_weight = weight * 0.3
-                if coverage >= min_cov:
-                    points += cov_weight
-                    self.details.append(
-                        f"✓ Couverture {coverage:.1f}% >= {min_cov}% ({cov_weight:.1f}/{cov_weight:.1f})"
-                    )
-                elif coverage >= min_cov - 20:
-                    partial = cov_weight * 0.6
-                    points += partial
-                    self.details.append(
-                        f"⚠ Couverture {coverage:.1f}% ({partial:.1f}/{cov_weight:.1f})"
-                    )
-                else:
-                    partial = cov_weight * 0.3
-                    points += partial
-                    self.details.append(
-                        f"✗ Couverture {coverage:.1f}% < {min_cov-20}% ({partial:.1f}/{cov_weight:.1f})"
-                    )
-            except:
-                self.details.append(f"✗ Erreur couverture (0/{weight*0.3:.1f})")
-        else:
-            self.details.append(f"✗ Rapport couverture absent (0/{weight*0.3:.1f})")
-
-        return points
-
-    def _evaluate_tests_simple(self):
-        """Evaluation simple tests (iteration 1)"""
-        points = 0
-        weight = self.config["tests"]["weight"]
-
-        if os.path.exists("tests"):
+    def _has_inheritance(self) -> bool:
+        for p in self._source_files():
             try:
-                result = subprocess.run(
-                    ["pytest", "tests/", "-v"], capture_output=True, timeout=60
-                )
-                if result.returncode == 0:
-                    points += weight * 0.7
-                    self.details.append(
-                        f"✓ Tests passent ({weight*0.7:.1f}/{weight*0.7:.1f})"
-                    )
-                else:
-                    points += weight * 0.35
-                    self.details.append(
-                        f"⚠ Tests echouent partiellement ({weight*0.35:.1f}/{weight*0.7:.1f})"
-                    )
-            except:
-                self.details.append(f"✗ Erreur tests (0/{weight*0.7:.1f})")
-        else:
-            self.details.append(f"✗ Repertoire tests/ absent (0/{weight*0.7:.1f})")
+                tree = ast.parse(p.read_text(encoding="utf-8", errors="ignore"))
+                if any(isinstance(n, ast.ClassDef) and n.bases for n in ast.walk(tree)):
+                    return True
+            except Exception:
+                pass
+        return False
 
-        return points
+    def _avg_methods_per_class(self) -> float:
+        counts = []
+        for p in self._source_files():
+            try:
+                tree = ast.parse(p.read_text(encoding="utf-8", errors="ignore"))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ClassDef):
+                        counts.append(len([n for n in node.body
+                                           if isinstance(n, ast.FunctionDef)]))
+            except Exception:
+                pass
+        return sum(counts) / len(counts) if counts else 0
 
-    def _evaluate_test_structure(self):
-        """Evaluation structure tests detaillee (iteration 2+)"""
-        points = 0
-        weight = self.config["tests"]["weight"]
-        structure = self.config["tests"]["test_structure"]
+    def _source_content(self) -> str:
+        """Retourne tout le code source concaténé (pour chercher des patterns)."""
+        parts = []
+        for p in self._source_files():
+            try:
+                parts.append(p.read_text(encoding="utf-8", errors="ignore"))
+            except Exception:
+                pass
+        return "\n".join(parts)
 
-        for category, specs in structure.items():
-            cat_weight = (specs["weight"] / 100) * weight * 0.7
-            cat_points = 0
+    # ------------------------------------------------------------------
+    # Check types — Fonctionnalité
+    # ------------------------------------------------------------------
 
-            # Verifier fichiers requis
-            required_files = specs.get("required_files", [])
-            files_present = sum(1 for f in required_files if os.path.exists(f))
-
-            if files_present == len(required_files):
-                cat_points += cat_weight * 0.5
-                self.details.append(
-                    f"✓ Tests {category}: fichiers presents ({cat_weight*0.5:.1f})"
-                )
-            elif files_present > 0:
-                partial = (files_present / len(required_files)) * cat_weight * 0.5
-                cat_points += partial
-                self.details.append(
-                    f"⚠ Tests {category}: {files_present}/{len(required_files)} fichiers ({partial:.1f})"
-                )
-            else:
-                self.details.append(
-                    f"✗ Tests {category}: fichiers manquants (0/{cat_weight*0.5:.1f})"
-                )
-
-            # Compter tests dans categorie
-            min_tests = specs.get("min_tests", 0)
-            if min_tests > 0:
-                test_count = self._count_tests_in_category(category)
-
-                if test_count >= min_tests:
-                    cat_points += cat_weight * 0.5
-                    self.details.append(
-                        f"✓ Tests {category}: {test_count} tests ({cat_weight*0.5:.1f})"
-                    )
-                elif test_count > 0:
-                    partial = (test_count / min_tests) * cat_weight * 0.5
-                    cat_points += partial
-                    self.details.append(
-                        f"⚠ Tests {category}: {test_count}/{min_tests} tests ({partial:.1f})"
-                    )
-                else:
-                    self.details.append(
-                        f"✗ Tests {category}: aucun test (0/{cat_weight*0.5:.1f})"
-                    )
-
-            points += cat_points
-
-        return points
-
-    def _count_tests_in_category(self, category):
-        """Compte tests dans une categorie"""
-        category_path = f"tests/{category}"
-        if not os.path.exists(category_path):
-            return 0
-
+    def _check_import_test(self, check: dict) -> int:
+        target = check.get("target", "app")
         try:
             result = subprocess.run(
-                ["pytest", category_path, "--collect-only", "-q"],
-                capture_output=True,
-                text=True,
-                timeout=30,
+                [sys.executable, "-c", f"import {target}; print('OK')"],
+                capture_output=True, timeout=15
             )
-            lines = result.stdout.split("\n")
-            for line in lines:
-                if "test" in line.lower() and ("selected" in line.lower() or "collected" in line.lower()):
-                    import re
+            if result.returncode == 0:
+                self.details.append(f"{OK} {check['name']} ({check['points']}/{check['points']})")
+                return check["points"]
+        except Exception:
+            pass
+        self.details.append(f"{FAIL} {check['name']} (0/{check['points']})")
+        return 0
 
-                    match = re.search(r"(\d+)\s+test", line)
-                    if match:
-                        return int(match.group(1))
-            return 0
-        except:
+    def _check_class_detection(self, check: dict) -> int:
+        classes = self._find_classes()
+        n = len(set(classes))
+        minimum = check.get("min_classes", 0)
+        if n >= minimum:
+            self.details.append(f"{OK} {check['name']}: {n} classes ({check['points']}/{check['points']})")
+            return check["points"]
+        partial = int((n / max(minimum, 1)) * check["points"])
+        self.details.append(f"{WARN} {check['name']}: {n}/{minimum} classes ({partial}/{check['points']})")
+        return partial
+
+    def _check_endpoint(self, check: dict) -> int:
+        """Cherche les endpoints dans le code source (recherche textuelle)."""
+        content = self._source_content()
+        http_methods = ["get", "post", "put", "delete", "patch"]
+
+        def _ep_present(ep: str) -> bool:
+            ep_escaped = re.escape(ep)
+            pattern = r'@\w+\.(?:' + "|".join(http_methods) + r')\s*\(\s*["\']' + ep_escaped
+            return bool(re.search(pattern, content))
+
+        if "endpoint" in check:
+            ep = check["endpoint"]
+            if _ep_present(ep):
+                self.details.append(f"{OK} {check['name']} ({check['points']}/{check['points']})")
+                return check["points"]
+            self.details.append(f"{FAIL} {check['name']}: {ep} absent (0/{check['points']})")
             return 0
 
-    def evaluate_quality(self):
-        """Evalue qualite code selon config"""
-        points = 0
-        weight = self.config["quality"]["weight"]
-        max_errors = self.config["quality"]["max_flake8_errors"]
-        max_complexity = self.config["quality"]["max_complexity"]
+        if "endpoints" in check:
+            eps = check["endpoints"]
+            found = [ep for ep in eps if _ep_present(ep)]
+            ratio = len(found) / len(eps)
+            pts = int(ratio * check["points"])
+            sym = OK if ratio == 1 else (WARN if ratio > 0 else FAIL)
+            self.details.append(
+                f"{sym} {check['name']}: {len(found)}/{len(eps)} endpoints ({pts}/{check['points']})"
+            )
+            return pts
+
+        return 0
+
+    def _check_pattern_detection(self, check: dict) -> int:
+        """
+        Détecte les design patterns dans le code source.
+        Cherche des indices structurels (héritage, noms de classes/méthodes).
+        """
+        content = self._source_content()
+        patterns = check.get("patterns", [])
+
+        PATTERN_HINTS = {
+            "Factory":           [r"class\s+\w*Factory", r"def\s+create\b", r"def\s+make\b"],
+            "Repository":        [r"class\s+\w*Repository", r"def\s+find_by", r"def\s+save\b"],
+            "Observer":          [r"class\s+\w*Observer", r"def\s+notify\b", r"def\s+subscribe\b",
+                                  r"def\s+update\b", r"_observers"],
+            "Strategy":          [r"class\s+\w*Strategy", r"def\s+execute\b", r"class\s+\w*Context"],
+            "State":             [r"class\s+\w*State", r"def\s+handle\b", r"self\._state"],
+            "Adapter":           [r"class\s+\w*Adapter", r"def\s+adapt\b"],
+            "Facade":            [r"class\s+\w*Facade"],
+            "Proxy":             [r"class\s+\w*Proxy", r"def\s+__getattr__"],
+            "Decorator":         [r"class\s+\w*Decorator", r"@wraps", r"functools\.wraps"],
+            "UnitOfWork":        [r"class\s+\w*UnitOfWork", r"def\s+commit\b", r"def\s+rollback\b"],
+            "DependencyInjection":[r"def\s+__init__.*repository", r"def\s+__init__.*service",
+                                   r"class\s+\w*Container"],
+            "ServiceLocator":    [r"class\s+\w*ServiceLocator", r"def\s+get_service\b",
+                                  r"_services\s*=\s*\{"],
+            "CircuitBreaker":    [r"class\s+\w*CircuitBreaker", r"pybreaker", r"circuit_breaker"],
+            "Retry":             [r"tenacity", r"@retry", r"def\s+retry\b"],
+            "HealthCheck":       [r"/health", r"/readiness", r"def\s+health_check\b"],
+            "Metaclass":         [r"class\s+\w+\s*\(.*metaclass", r"__init_subclass__",
+                                  r"__new__.*cls.*mcs"],
+            "DeviceFactory":     [r"class\s+DeviceFactory", r"device_registry", r"_registry\s*=\s*\{"],
+        }
+
+        found = []
+        missing = []
+        for p in patterns:
+            hints = PATTERN_HINTS.get(p, [re.escape(p)])
+            if any(re.search(h, content, re.IGNORECASE) for h in hints):
+                found.append(p)
+            else:
+                missing.append(p)
+
+        ratio = len(found) / max(len(patterns), 1)
+        pts = int(ratio * check["points"])
+        sym = OK if ratio == 1 else (WARN if ratio > 0 else FAIL)
+        detail = f"{sym} {check['name']}: {found}"
+        if missing:
+            detail += f" | manquants: {missing}"
+        detail += f" ({pts}/{check['points']})"
+        self.details.append(detail)
+        return pts
+
+    def _check_database(self, check: dict) -> int:
+        """Vérifie la présence d'une configuration de base de données."""
+        db_type = check.get("db_type", "sqlite")
+        content = self._source_content()
+
+        if db_type == "postgresql":
+            found = bool(re.search(r"postgresql|psycopg2|asyncpg", content, re.IGNORECASE))
+        else:
+            found = bool(re.search(r"sqlite", content, re.IGNORECASE))
+
+        env_url = os.getenv("DATABASE_URL", "")
+        if db_type == "postgresql" and "postgresql" in env_url.lower():
+            found = True
+
+        sym = OK if found else FAIL
+        pts = check["points"] if found else 0
+        self.details.append(f"{sym} {check['name']} ({pts}/{check['points']})")
+        return pts
+
+    def _check_mqtt(self, check: dict) -> int:
+        """Vérifie que le broker MQTT est configuré et que paho-mqtt est utilisé."""
+        content = self._source_content()
+        found = bool(re.search(r"mqtt|paho|mosquitto|MQTTClient", content, re.IGNORECASE))
+        sym = OK if found else FAIL
+        pts = check["points"] if found else 0
+        self.details.append(f"{sym} {check['name']} ({pts}/{check['points']})")
+        return pts
+
+    def _check_file(self, check: dict) -> int:
+        """Vérifie la présence de fichiers requis."""
+        required = check.get("required_files", [])
+        present = [f for f in required if os.path.exists(f)]
+        ratio = len(present) / max(len(required), 1)
+        pts = int(ratio * check["points"])
+        sym = OK if ratio == 1 else (WARN if ratio > 0 else FAIL)
+        self.details.append(
+            f"{sym} {check['name']}: {len(present)}/{len(required)} fichiers ({pts}/{check['points']})"
+        )
+        return pts
+
+    def _check_dockerfile(self, check: dict) -> int:
+        """Vérifie la qualité du Dockerfile."""
+        pts = 0
+        max_pts = check["points"]
+        sub_checks = check.get("checks", [])
+        passed = []
+
+        if "Dockerfile existe" in sub_checks and os.path.exists("Dockerfile"):
+            passed.append("Dockerfile")
+        if os.path.exists("Dockerfile"):
+            content = Path("Dockerfile").read_text(errors="ignore")
+            if "Image de base officielle Python" in sub_checks:
+                if re.search(r"FROM\s+python:", content, re.IGNORECASE):
+                    passed.append("FROM python")
+            if ".dockerignore present" in sub_checks and os.path.exists(".dockerignore"):
+                passed.append(".dockerignore")
+            if "Image buildable sans erreur" in sub_checks:
+                try:
+                    r = subprocess.run(
+                        ["docker", "build", "-t", "ift785-check-build", "--no-cache", "."],
+                        capture_output=True, timeout=300
+                    )
+                    if r.returncode == 0:
+                        passed.append("build OK")
+                except Exception:
+                    pass
+
+        ratio = len(passed) / max(len(sub_checks), 1)
+        pts = int(ratio * max_pts)
+        sym = OK if ratio == 1 else (WARN if ratio > 0 else FAIL)
+        self.details.append(f"{sym} {check['name']}: {passed} ({pts}/{max_pts})")
+        return pts
+
+    def _check_compose(self, check: dict) -> int:
+        """Vérifie le contenu du docker-compose.yml."""
+        if not os.path.exists("docker-compose.yml"):
+            self.details.append(f"{FAIL} {check['name']}: docker-compose.yml absent (0/{check['points']})")
+            return 0
+
+        content = Path("docker-compose.yml").read_text(errors="ignore")
+        pts = 0
+        max_pts = check["points"]
+        passed = []
+        total_checks = 0
+
+        # Vérifier services requis
+        for svc in check.get("required_services", []):
+            total_checks += 1
+            name = svc["name"]
+            if name in content:
+                if svc.get("must_build") and "build:" in content:
+                    passed.append(f"service:{name}(build)")
+                elif "image_prefix" in svc and svc["image_prefix"] in content:
+                    passed.append(f"service:{name}")
+                elif svc.get("must_build") or "image_prefix" not in svc:
+                    passed.append(f"service:{name}")
+
+        # Vérifier features requises
+        feature_patterns = {
+            "volumes nommes":          r"volumes:\s*\n(?:\s+\w+:)",
+            "depends_on avec condition": r"condition:\s*service_healthy",
+            "healthcheck par service": r"healthcheck:",
+            "env_file ou environment": r"env_file:|environment:",
+        }
+        for feat in check.get("required_features", []):
+            total_checks += 1
+            pattern = feature_patterns.get(feat, re.escape(feat))
+            if re.search(pattern, content, re.IGNORECASE):
+                passed.append(f"feat:{feat}")
+
+        ratio = len(passed) / max(total_checks, 1)
+        pts = int(ratio * max_pts)
+        sym = OK if ratio >= 0.9 else (WARN if ratio > 0 else FAIL)
+        self.details.append(f"{sym} {check['name']}: {len(passed)}/{total_checks} checks ({pts}/{max_pts})")
+        return pts
+
+    def _check_compose_up(self, check: dict) -> int:
+        """Tente docker compose up et vérifie le health endpoint."""
+        max_pts = check["points"]
+        try:
+            r = subprocess.run(
+                ["docker", "compose", "up", "--build", "-d"],
+                capture_output=True, timeout=300
+            )
+            if r.returncode != 0:
+                self.details.append(f"{FAIL} {check['name']}: compose up échoué (0/{max_pts})")
+                return 0
+
+            import time
+            time.sleep(check.get("wait_seconds", 20))
+
+            import urllib.request
+            endpoint = check.get("health_endpoint", "/api/health")
+            url = f"http://localhost{endpoint}"
+            req = urllib.request.urlopen(url, timeout=10)
+            if req.status == 200:
+                self.details.append(f"{OK} {check['name']}: stack opérationnelle ({max_pts}/{max_pts})")
+                return max_pts
+        except Exception as e:
+            self.details.append(f"{FAIL} {check['name']}: {e} (0/{max_pts})")
+        return 0
+
+    def _check_deployment(self, check: dict) -> int:
+        """Vérifie le nombre d'instances via docker compose ps."""
+        min_instances = check.get("min_instances", 1)
+        try:
+            r = subprocess.run(
+                ["docker", "compose", "ps", "--format", "json"],
+                capture_output=True, text=True, timeout=30
+            )
+            data = json.loads(r.stdout or "[]")
+            running = sum(1 for s in data if s.get("State") == "running")
+            if running >= min_instances:
+                self.details.append(
+                    f"{OK} {check['name']}: {running} instances ({check['points']}/{check['points']})"
+                )
+                return check["points"]
+            pts = int((running / min_instances) * check["points"])
+            self.details.append(f"{WARN} {check['name']}: {running}/{min_instances} instances ({pts}/{check['points']})")
+            return pts
+        except Exception as e:
+            self.details.append(f"{FAIL} {check['name']}: {e} (0/{check['points']})")
+            return 0
+
+    def _check_frontend(self, check: dict) -> int:
+        """
+        Vérifie la présence d'interfaces graphiques (bonus).
+        Cherche les URLs dans les templates/fichiers statiques.
+        """
+        urls = check.get("urls", [])
+        content = self._source_content()
+        html_content = ""
+        for p in Path(".").rglob("*.html"):
+            if not self._should_exclude(str(p)):
+                try:
+                    html_content += p.read_text(errors="ignore")
+                except Exception:
+                    pass
+
+        found = 0
+        for url in urls:
+            if url in content or url in html_content:
+                found += 1
+
+        ratio = found / max(len(urls), 1)
+        pts = int(ratio * check["points"])
+        sym = OK if ratio >= 1 else (WARN if ratio > 0 else FAIL)
+        self.details.append(f"{sym} [BONUS] {check['name']}: {found}/{len(urls)} URLs ({pts}/{check['points']})")
+        return pts
+
+    # ------------------------------------------------------------------
+    # Dispatcher principal
+    # ------------------------------------------------------------------
+
+    CHECK_DISPATCH = {
+        "import_test":       "_check_import_test",
+        "class_detection":   "_check_class_detection",
+        "endpoint_check":    "_check_endpoint",
+        "pattern_detection": "_check_pattern_detection",
+        "database_check":    "_check_database",
+        "mqtt_check":        "_check_mqtt",
+        "file_check":        "_check_file",
+        "dockerfile_check":  "_check_dockerfile",
+        "compose_check":     "_check_compose",
+        "compose_up_check":  "_check_compose_up",
+        "deployment_check":  "_check_deployment",
+        "frontend_check":    "_check_frontend",
+    }
+
+    def _run_check(self, check: dict) -> int:
+        check_type = check.get("type", "")
+        method_name = self.CHECK_DISPATCH.get(check_type)
+        if method_name:
+            return getattr(self, method_name)(check)
+        self.details.append(f"{WARN} Type de check inconnu: '{check_type}' (0/{check.get('points', 0)})")
+        return 0
+
+    # ------------------------------------------------------------------
+    # Évaluation des 4 critères principaux
+    # ------------------------------------------------------------------
+
+    def evaluate_functionality(self) -> float:
+        cfg = self.config.get("functionality", {})
+        weight = cfg.get("weight", 40)
+        checks = cfg.get("checks", [])
+        if not checks:
+            return 0.0
+
+        total_check_pts = sum(c["points"] for c in checks)
+        earned = sum(self._run_check(c) for c in checks)
+
+        score = (earned / max(total_check_pts, 1)) * weight
+        self.details.append(f"→ Fonctionnalité: {earned}/{total_check_pts} pts bruts → {score:.1f}/{weight}")
+        return score
+
+    def evaluate_tests(self) -> float:
+        cfg = self.config.get("tests", {})
+        weight = cfg.get("weight", 30)
+        points = 0.0
+
+        # Structure de tests
+        if "test_structure" in cfg:
+            points += self._eval_test_structure(cfg)
+        else:
+            points += self._eval_tests_simple(cfg)
+
+        # Couverture
+        cov_share = weight * 0.30
+        points += self._eval_coverage(cfg.get("min_coverage", 70), cov_share)
+
+        score = min(points, weight)
+        self.details.append(f"→ Tests: {score:.1f}/{weight}")
+        return score
+
+    def _eval_tests_simple(self, cfg: dict) -> float:
+        weight = cfg.get("weight", 30)
+        base = weight * 0.70
+        if not os.path.exists("tests"):
+            self.details.append(f"{FAIL} Répertoire tests/ absent (0/{base:.1f})")
+            return 0.0
+        try:
+            r = subprocess.run(["pytest", "tests/", "-q"],
+                               capture_output=True, timeout=120)
+            if r.returncode == 0:
+                self.details.append(f"{OK} Tests passent ({base:.1f}/{base:.1f})")
+                return base
+            self.details.append(f"{WARN} Tests échouent partiellement ({base*0.5:.1f}/{base:.1f})")
+            return base * 0.5
+        except Exception:
+            self.details.append(f"{FAIL} Erreur exécution tests (0/{base:.1f})")
+            return 0.0
+
+    def _eval_test_structure(self, cfg: dict) -> float:
+        weight = cfg.get("weight", 30)
+        structure = cfg.get("test_structure", {})
+        base = weight * 0.70
+        total = 0.0
+
+        for category, specs in structure.items():
+            cat_share = (specs.get("weight", 0) / 100) * base
+            cat_pts = 0.0
+
+            # Fichiers requis
+            required = specs.get("required_files", [])
+            present = sum(1 for f in required if os.path.exists(f))
+            files_ok = present / max(len(required), 1)
+            cat_pts += files_ok * cat_share * 0.5
+            sym = OK if files_ok == 1 else (WARN if files_ok > 0 else FAIL)
+            self.details.append(f"{sym} Tests/{category} fichiers: {present}/{len(required)}")
+
+            # Nombre de tests
+            min_tests = specs.get("min_tests", 0)
+            if min_tests > 0:
+                n = self._count_tests(f"tests/{category}")
+                ratio = min(n / min_tests, 1.0)
+                cat_pts += ratio * cat_share * 0.5
+                sym = OK if ratio >= 1 else (WARN if ratio > 0 else FAIL)
+                self.details.append(f"{sym} Tests/{category}: {n}/{min_tests} tests")
+
+            total += cat_pts
+
+        return total
+
+    def _count_tests(self, path: str) -> int:
+        if not os.path.exists(path):
+            return 0
+        try:
+            r = subprocess.run(
+                ["pytest", path, "--collect-only", "-q"],
+                capture_output=True, text=True, timeout=30
+            )
+            m = re.search(r"(\d+)\s+test", r.stdout)
+            return int(m.group(1)) if m else 0
+        except Exception:
+            return 0
+
+    def _eval_coverage(self, min_cov: float, share: float) -> float:
+        if not os.path.exists("coverage.xml"):
+            self.details.append(f"{FAIL} Rapport couverture absent (0/{share:.1f})")
+            return 0.0
+        try:
+            import xml.etree.ElementTree as ET
+            cov = float(ET.parse("coverage.xml").getroot().attrib.get("line-rate", 0)) * 100
+            if cov >= min_cov:
+                self.details.append(f"{OK} Couverture {cov:.1f}% >= {min_cov}% ({share:.1f}/{share:.1f})")
+                return share
+            ratio = cov / min_cov
+            pts = ratio * share
+            sym = WARN if cov >= min_cov - 15 else FAIL
+            self.details.append(f"{sym} Couverture {cov:.1f}% / {min_cov}% ({pts:.1f}/{share:.1f})")
+            return pts
+        except Exception:
+            self.details.append(f"{WARN} Erreur lecture couverture (0/{share:.1f})")
+            return 0.0
+
+    def evaluate_quality(self) -> float:
+        cfg = self.config.get("quality", {})
+        weight = cfg.get("weight", 20)
+        max_errors = cfg.get("max_flake8_errors", 10)
+        max_cx = cfg.get("max_complexity", 10)
+        share = weight / 2
+        pts = 0.0
 
         # Flake8
         if os.path.exists("flake8_report.json"):
             try:
-                with open("flake8_report.json", "r") as f:
-                    errors = json.load(f)
-                    total_errors = sum(len(v) for v in errors.values())
+                data = json.loads(Path("flake8_report.json").read_text())
+                n_err = sum(len(v) for v in data.values()) if isinstance(data, dict) else len(data)
+                if n_err == 0:
+                    pts += share
+                    self.details.append(f"{OK} Flake8: 0 erreur ({share:.1f}/{share:.1f})")
+                elif n_err <= max_errors:
+                    p = share * 0.6
+                    pts += p
+                    self.details.append(f"{WARN} Flake8: {n_err} erreurs ({p:.1f}/{share:.1f})")
+                else:
+                    p = share * 0.2
+                    pts += p
+                    self.details.append(f"{FAIL} Flake8: {n_err} erreurs > {max_errors} ({p:.1f}/{share:.1f})")
+            except Exception:
+                pts += share * 0.3
+                self.details.append(f"{WARN} Erreur lecture flake8 ({share*0.3:.1f}/{share:.1f})")
+        else:
+            self.details.append(f"{WARN} flake8_report.json absent (0/{share:.1f})")
 
-                    if total_errors == 0:
-                        points += weight * 0.5
-                        self.details.append(
-                            f"✓ Flake8: 0 erreur ({weight*0.5:.1f}/{weight*0.5:.1f})"
-                        )
-                    elif total_errors <= max_errors:
-                        partial = weight * 0.3
-                        points += partial
-                        self.details.append(
-                            f"⚠ Flake8: {total_errors} erreurs ({partial:.1f}/{weight*0.5:.1f})"
-                        )
-                    else:
-                        points += weight * 0.1
-                        self.details.append(
-                            f"✗ Flake8: {total_errors} erreurs ({weight*0.1:.1f}/{weight*0.5:.1f})"
-                        )
-            except:
-                points += weight * 0.25
-                self.details.append(
-                    f"⚠ Erreur flake8 ({weight*0.25:.1f}/{weight*0.5:.1f})"
-                )
-
-        # Complexite
+        # Complexité
         if os.path.exists("complexity_report.json"):
             try:
-                with open("complexity_report.json", "r") as f:
-                    data = json.load(f)
-                    high_complexity = sum(
-                        1
-                        for file_data in data.values()
-                        for func in file_data
-                        if func.get("complexity", 0) > max_complexity
-                    )
-
-                    if high_complexity == 0:
-                        points += weight * 0.5
-                        self.details.append(
-                            f"✓ Complexite acceptable ({weight*0.5:.1f}/{weight*0.5:.1f})"
-                        )
-                    elif high_complexity <= 3:
-                        partial = weight * 0.3
-                        points += partial
-                        self.details.append(
-                            f"⚠ {high_complexity} fonctions complexes ({partial:.1f}/{weight*0.5:.1f})"
-                        )
-                    else:
-                        points += weight * 0.1
-                        self.details.append(
-                            f"✗ {high_complexity} fonctions complexes ({weight*0.1:.1f}/{weight*0.5:.1f})"
-                        )
-            except:
-                points += weight * 0.25
-                self.details.append(
-                    f"⚠ Erreur complexite ({weight*0.25:.1f}/{weight*0.5:.1f})"
+                data = json.loads(Path("complexity_report.json").read_text())
+                high = sum(
+                    1 for fd in data.values() for func in fd
+                    if func.get("complexity", 0) > max_cx
                 )
+                if high == 0:
+                    pts += share
+                    self.details.append(f"{OK} Complexité acceptable ({share:.1f}/{share:.1f})")
+                elif high <= 3:
+                    p = share * 0.6
+                    pts += p
+                    self.details.append(f"{WARN} {high} fonctions complexes ({p:.1f}/{share:.1f})")
+                else:
+                    p = share * 0.2
+                    pts += p
+                    self.details.append(f"{FAIL} {high} fonctions > CC{max_cx} ({p:.1f}/{share:.1f})")
+            except Exception:
+                pts += share * 0.3
+                self.details.append(f"{WARN} Erreur lecture complexité ({share*0.3:.1f}/{share:.1f})")
+        else:
+            self.details.append(f"{WARN} complexity_report.json absent (0/{share:.1f})")
 
-        return points
+        self.details.append(f"→ Qualité: {pts:.1f}/{weight}")
+        return pts
 
-    def evaluate_git(self):
-        """Evalue pratiques Git"""
-        points = 0
-        weight = self.config["git"]["weight"]
+    def evaluate_git(self) -> float:
+        cfg = self.config.get("git", {})
+        weight = cfg.get("weight", 10)
+        pts = 0.0
 
-        self.get_contributors()
+        self._collect_contributors()
 
         # Commits par personne
-        min_commits = self.config["git"]["min_commits_per_person"]
-        all_meet = all(c["commits"] >= min_commits for c in self.contributors.values())
+        min_commits = cfg.get("min_commits_per_person", 5)
+        share_commits = weight * 0.40
+        if self.contributors:
+            short = [n for n, c in self.contributors.items() if c["commits"] < min_commits]
+            if not short:
+                pts += share_commits
+                self.details.append(f"{OK} Commits minimum atteints par tous ({share_commits:.1f}/{share_commits:.1f})")
+            else:
+                pts += share_commits * 0.5
+                self.details.append(f"{WARN} Commits insuffisants: {', '.join(short)} ({share_commits*0.5:.1f}/{share_commits:.1f})")
 
-        if all_meet:
-            points += weight * 0.4
-            self.details.append(
-                f"✓ Commits minimums atteints ({weight*0.4:.1f}/{weight*0.4:.1f})"
-            )
-        else:
-            below = [
-                n for n, c in self.contributors.items() if c["commits"] < min_commits
-            ]
-            points += weight * 0.2
-            self.details.append(
-                f"⚠ Commits insuffisants pour: {', '.join(below)} ({weight*0.2:.1f}/{weight*0.4:.1f})"
-            )
-
-        # Equilibre contribution
-        balanced, ratios = self.analyze_contribution_balance()
+        # Équilibre
+        share_balance = weight * 0.30
+        balanced, ratios = self._contribution_balance(cfg.get("min_contribution_ratio", 30))
         if balanced:
-            points += weight * 0.3
-            self.details.append(
-                f"✓ Contribution equilibree ({weight*0.3:.1f}/{weight*0.3:.1f})"
-            )
+            pts += share_balance
+            self.details.append(f"{OK} Contribution équilibrée ({share_balance:.1f}/{share_balance:.1f})")
         else:
-            points += weight * 0.1
-            ratio_str = ", ".join(f"{n}: {r}%" for n, r in ratios.items())
-            self.details.append(
-                f"⚠ Desequilibre: {ratio_str} ({weight*0.1:.1f}/{weight*0.3:.1f})"
-            )
+            pts += share_balance * 0.3
+            ratio_str = ", ".join(f"{n}: {r:.0f}%" for n, r in ratios.items())
+            self.details.append(f"{WARN} Déséquilibre: {ratio_str} ({share_balance*0.3:.1f}/{share_balance:.1f})")
 
         # Commits conventionnels
-        conv_ratio = self.check_conventional_commits()
-        min_conv = self.config["git"]["conventional_commits_ratio"]
-
+        share_conv = weight * 0.30
+        conv_ratio = self._conventional_commits_ratio()
+        min_conv = cfg.get("conventional_commits_ratio", 60)
         if conv_ratio >= min_conv:
-            points += weight * 0.3
-            self.details.append(
-                f"✓ Commits conventionnels: {conv_ratio:.0f}% ({weight*0.3:.1f}/{weight*0.3:.1f})"
-            )
+            pts += share_conv
+            self.details.append(f"{OK} Commits conventionnels: {conv_ratio:.0f}% ({share_conv:.1f}/{share_conv:.1f})")
         else:
-            partial = (conv_ratio / min_conv) * weight * 0.3
-            points += partial
+            p = (conv_ratio / max(min_conv, 1)) * share_conv
+            pts += p
+            self.details.append(f"{WARN} Commits conventionnels: {conv_ratio:.0f}% / {min_conv}% ({p:.1f}/{share_conv:.1f})")
+
+        self.details.append(f"→ Git: {pts:.1f}/{weight}")
+        return pts
+
+    # ------------------------------------------------------------------
+    # Bonus
+    # ------------------------------------------------------------------
+
+    def evaluate_bonus(self, base_score: float) -> float:
+        """
+        Évalue la section bonus et retourne les points bonus
+        plafonnés de façon à ne pas dépasser cap_total (défaut 100).
+        """
+        bonus_cfg = self.config.get("bonus")
+        if not bonus_cfg:
+            return 0.0
+
+        cap = bonus_cfg.get("cap_total", 100)
+        max_bonus = bonus_cfg.get("max_points", 10)
+        checks = bonus_cfg.get("checks", [])
+
+        raw_bonus = sum(self._check_frontend(c) for c in checks)
+        raw_bonus = min(raw_bonus, max_bonus)
+
+        # Plafonnement : bonus ne peut pas pousser la note au-delà de cap
+        allowed = max(0.0, cap - base_score)
+        applied = min(raw_bonus, allowed)
+
+        if raw_bonus > 0:
             self.details.append(
-                f"⚠ Commits conventionnels: {conv_ratio:.0f}% ({partial:.1f}/{weight*0.3:.1f})"
+                f"\n--- BONUS ({raw_bonus:.1f} pts bruts, {applied:.1f} pts appliqués — plafond {cap}) ---"
             )
+        return applied
 
-        return points
+    # ------------------------------------------------------------------
+    # Git helpers
+    # ------------------------------------------------------------------
 
-    def _find_classes(self):
-        """Trouve toutes les classes dans le code"""
-        classes = []
-        for py_file in Path(".").rglob("*.py"):
-            if self._should_exclude_file(py_file):
-                continue
-            try:
-                with open(py_file, "r") as f:
-                    tree = ast.parse(f.read())
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.ClassDef):
-                            classes.append(node.name)
-            except:
-                continue
-        return classes
-
-    def _detect_patterns(self, patterns):
-        """Detecte patterns de conception (Factory, Repository, Observer, etc.)"""
-        found = []
-        pattern_keywords = {
-            "Factory": ["Factory", "factory"],
-            "Repository": ["Repository", "repository", "Repo"],
-            "Observer": ["Observer", "observer", "Listener", "listener"],
-        }
-
-        for pattern in patterns:
-            keywords = pattern_keywords.get(pattern, [pattern])
-            detected = False
-
-            # Chercher dans les fichiers Python
-            for py_file in Path(".").rglob("*.py"):
-                if self._should_exclude_file(py_file):
+    def _collect_contributors(self):
+        r = subprocess.run(["git", "log", "--format=%aN|%aE", "--all"],
+                           capture_output=True, text=True)
+        contributors = {}
+        for line in r.stdout.strip().splitlines():
+            if "|" in line:
+                name, email = line.split("|", 1)
+                # Exclure les auteurs de la liste d'exclusion (nom ou email)
+                if name in self.excluded_authors or email in self.excluded_authors:
                     continue
-                try:
-                    with open(py_file, "r") as f:
-                        content = f.read()
-                        # Chercher le pattern dans les noms de classe ou en commentaires
-                        for keyword in keywords:
-                            if keyword in content:
-                                detected = True
-                                break
-                except:
-                    continue
+                contributors.setdefault(name, {"email": email, "commits": 0, "lines_added": 0})
+                contributors[name]["commits"] += 1
 
-                if detected:
-                    break
+        r2 = subprocess.run(["git", "log", "--numstat", "--format=%aN", "--all"],
+                            capture_output=True, text=True)
+        current = None
+        for line in r2.stdout.splitlines():
+            if line and "\t" not in line:
+                current = line
+            elif "\t" in line and current and current in contributors:
+                parts = line.split("\t")
+                if len(parts) >= 2 and parts[0].isdigit():
+                    contributors[current]["lines_added"] += int(parts[0])
 
-            if detected:
-                found.append(pattern)
+        self.contributors = contributors
 
-        return found
+    def _contribution_balance(self, min_ratio: int):
+        if not self.contributors:
+            return True, {}
+        total = sum(c["commits"] for c in self.contributors.values())
+        ratios = {n: (c["commits"] / max(total, 1)) * 100 for n, c in self.contributors.items()}
+        balanced = all(r >= min_ratio for r in ratios.values())
+        return balanced, ratios
 
-    def run_evaluation(self):
-        """Execute evaluation complete"""
-        print("\n" + "=" * 70)
-        print(f"EVALUATION AUTOMATIQUE - ITERATION {self.iteration}")
-        print(f"{self.config['name']}")
-        print("=" * 70 + "\n")
+    def _conventional_commits_ratio(self) -> float:
+        r = subprocess.run(["git", "log", "--format=%s", "--all"],
+                           capture_output=True, text=True)
+        messages = [m for m in r.stdout.strip().splitlines() if m]
+        if not messages:
+            return 0.0
+        pattern = r"^(feat|fix|docs|style|refactor|test|chore|perf|build|ci)(\(.+\))?!?:"
+        ok = sum(1 for m in messages if re.match(pattern, m))
+        return (ok / len(messages)) * 100
 
-        scores = {
-            "functionality": self.evaluate_functionality(),
-            "tests": self.evaluate_tests(),
-            "quality": self.evaluate_quality(),
-            "git": self.evaluate_git(),
-        }
+    # ------------------------------------------------------------------
+    # Rapports
+    # ------------------------------------------------------------------
 
-        total_score = sum(scores.values())
+    def _generate_html(self, data: dict) -> str:
+        score = data["score"]
+        color = ("#2e7d32" if score >= 70 else
+                 "#f57f17" if score >= 50 else "#c62828")
 
-        print("\n--- RESULTATS PAR CRITERE ---\n")
-        print(
-            f"{'Fonctionnalite':20s}: {scores['functionality']:.1f}/{self.config['functionality']['weight']}"
+        rows = ""
+        for d in data["details"]:
+            css = ("ok" if d.startswith(OK) else
+                   "warn" if d.startswith(WARN) else
+                   "bonus" if "BONUS" in d else
+                   "info" if d.startswith("→") else "fail")
+            rows += f'<div class="row {css}">{d}</div>\n'
+
+        contribs = ""
+        for c in data.get("contributors", []):
+            contribs += (f'<div class="contributor"><b>{c["name"]}</b> '
+                         f'({c["email"]}) — {c["commits"]} commits '
+                         f'({c["ratio"]:.1f}%) — {c["lines_added"]} lignes</div>\n')
+
+        return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>IFT785 — Itération {data["iteration"]}</title>
+  <style>
+    body  {{ font-family: 'Segoe UI', sans-serif; max-width: 960px;
+             margin: 40px auto; padding: 20px; background: #f4f6f8; }}
+    .hdr  {{ background: linear-gradient(135deg,#667eea,#764ba2);
+             color:#fff; padding:28px; border-radius:12px; margin-bottom:24px; }}
+    .hdr h1 {{ margin:0; font-size:26px; }}
+    .hdr p  {{ margin:6px 0 0; opacity:.85; }}
+    .score  {{ font-size:72px; font-weight:900; color:{color};
+               text-align:center; margin:20px 0; }}
+    .card   {{ background:#fff; border-radius:10px; padding:22px;
+               box-shadow:0 2px 6px rgba(0,0,0,.08); margin-bottom:18px; }}
+    .card h2 {{ margin-top:0; color:#444; }}
+    .row {{ padding:8px 12px; margin:5px 0; border-left:4px solid #ccc;
+             border-radius:4px; font-family:monospace; font-size:13px; }}
+    .ok   {{ border-color:#43a047; background:#f1f8e9; }}
+    .warn {{ border-color:#fb8c00; background:#fff8e1; }}
+    .fail {{ border-color:#e53935; background:#ffebee; }}
+    .bonus{{ border-color:#8e24aa; background:#f3e5f5; }}
+    .info {{ border-color:#1e88e5; background:#e3f2fd; font-weight:bold; }}
+    .contributor {{ padding:8px 0; border-bottom:1px solid #eee; }}
+    .bal  {{ display:inline-block; padding:4px 14px; border-radius:20px;
+             background:{('#43a047' if data.get('contribution_balanced') else '#fb8c00')};
+             color:#fff; margin-top:10px; font-size:13px; }}
+    .scores {{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }}
+    .sc   {{ background:#f8f9fa; border-left:4px solid #667eea;
+             padding:14px; border-radius:6px; }}
+    .sc b {{ display:block; color:#555; font-size:12px; text-transform:uppercase; }}
+    .sc span {{ font-size:24px; color:#667eea; font-weight:700; }}
+  </style>
+</head>
+<body>
+  <div class="hdr">
+    <h1>IFT785 — Itération {data['iteration']}: {data['iteration_name']}</h1>
+    <p>Évaluation du {data['date'][:10]}</p>
+  </div>
+
+  <div class="score">{score:.1f}/100</div>
+
+  <div class="card">
+    <h2>Résultats par critère</h2>
+    <div class="scores">
+      <div class="sc"><b>Fonctionnalité</b>
+        <span>{data['scores']['functionality']:.1f}/{data['weights']['functionality']}</span></div>
+      <div class="sc"><b>Tests</b>
+        <span>{data['scores']['tests']:.1f}/{data['weights']['tests']}</span></div>
+      <div class="sc"><b>Qualité Code</b>
+        <span>{data['scores']['quality']:.1f}/{data['weights']['quality']}</span></div>
+      <div class="sc"><b>Git</b>
+        <span>{data['scores']['git']:.1f}/{data['weights']['git']}</span></div>
+    </div>
+    {"<br><i>Bonus appliqué : +" + f"{data['bonus']:.1f} pts</i>" if data['bonus'] > 0 else ""}
+  </div>
+
+  <div class="card">
+    <h2>Équipe</h2>
+    {contribs}
+    <span class="bal">Contribution: {'Équilibrée' if data.get('contribution_balanced') else 'Déséquilibrée'}</span>
+  </div>
+
+  <div class="card">
+    <h2>Détails</h2>
+    {rows}
+  </div>
+</body>
+</html>"""
+
+    def generate_reports(self, scores: dict, bonus: float):
+        final = scores["_total"]
+        balanced, ratios = self._contribution_balance(
+            self.config.get("git", {}).get("min_contribution_ratio", 30)
         )
-        print(f"{'Tests':20s}: {scores['tests']:.1f}/{self.config['tests']['weight']}")
-        print(
-            f"{'Qualite Code':20s}: {scores['quality']:.1f}/{self.config['quality']['weight']}"
-        )
-        print(
-            f"{'Git/Commits':20s}: {scores['git']:.1f}/{self.config['git']['weight']}"
-        )
 
-        print(f"\n{'='*70}")
-        print(f"NOTE FINALE: {total_score:.1f}/100")
-        print(f"{'='*70}\n")
-
-        print("--- EQUIPE ---\n")
-        balanced, ratios = self.analyze_contribution_balance()
-        for name, info in self.contributors.items():
-            ratio = ratios.get(name, 0)
-            print(f"  {name} ({info['email']})")
-            print(f"    - {info['commits']} commits ({ratio}%)")
-            print(f"    - {info['lines_added']} lignes ajoutees")
-        print(f"\n  Equilibre: {'✓ Oui' if balanced else '✗ Non'}\n")
-
-        print("--- DETAILS ---\n")
-        for detail in self.details:
-            print(f"  {detail}")
-
-        return total_score, scores
-
-    def generate_reports(self, final_score, scores):
-        """Genere rapports JSON et HTML"""
-
-        balanced, ratios = self.analyze_contribution_balance()
-
-        report_data = {
-            "iteration": self.iteration,
-            "iteration_name": self.config["name"],
-            "date": datetime.now().isoformat(),
-            "score": final_score,
-            "scores": scores,
+        data = {
+            "iteration":            self.iteration,
+            "iteration_name":       self.config.get("name", ""),
+            "date":                 datetime.now().isoformat(),
+            "score":                final,
+            "bonus":                bonus,
+            "scores":               {k: v for k, v in scores.items() if k != "_total"},
+            "weights": {
+                "functionality": self.config.get("functionality", {}).get("weight", 40),
+                "tests":         self.config.get("tests", {}).get("weight", 30),
+                "quality":       self.config.get("quality", {}).get("weight", 20),
+                "git":           self.config.get("git", {}).get("weight", 10),
+            },
             "contributors": [
-                {
-                    "name": name,
-                    "email": info["email"],
-                    "commits": info["commits"],
-                    "lines_added": info["lines_added"],
-                    "ratio": ratios.get(name, 0),
-                }
-                for name, info in self.contributors.items()
+                {"name": n, "email": c["email"], "commits": c["commits"],
+                 "lines_added": c["lines_added"], "ratio": ratios.get(n, 0)}
+                for n, c in self.contributors.items()
             ],
             "contribution_balanced": balanced,
             "details": self.details,
         }
 
-        filename_json = f"evaluation_iteration_{self.iteration}.json"
-        filename_html = f"evaluation_iteration_{self.iteration}.html"
+        json_file = f"evaluation_iteration_{self.iteration}.json"
+        html_file = f"evaluation_iteration_{self.iteration}.html"
 
-        with open(filename_json, "w") as f:
-            json.dump(report_data, f, indent=2)
+        Path(json_file).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        Path(html_file).write_text(self._generate_html(data), encoding="utf-8")
+        print(f"\n{OK} Rapports générés: {json_file}, {html_file}")
 
-        html = self._generate_html(report_data)
-        with open(filename_html, "w") as f:
-            f.write(html)
+    # ------------------------------------------------------------------
+    # Point d'entrée
+    # ------------------------------------------------------------------
 
-        print(f"\n✓ Rapports generes: {filename_json}, {filename_html}")
-
-    def _generate_html(self, data):
-        """Genere rapport HTML"""
-        score = data["score"]
-        color = "green" if score >= 70 else "orange" if score >= 50 else "red"
-
-        html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Evaluation Iteration {data['iteration']}</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; max-width: 1000px; margin: 50px auto; padding: 20px; background: #f5f5f5; }}
-        .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; }}
-        h1 {{ margin: 0; font-size: 32px; }}
-        .iteration {{ opacity: 0.9; margin-top: 10px; }}
-        .score {{ font-size: 64px; font-weight: bold; color: {color}; text-align: center; margin: 30px 0; }}
-        .section {{ background: white; padding: 25px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-        .criteria {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }}
-        .criterion {{ padding: 15px; background: #f8f9fa; border-left: 4px solid #667eea; border-radius: 4px; }}
-        .criterion-name {{ font-weight: bold; color: #333; }}
-        .criterion-score {{ font-size: 24px; color: #667eea; margin-top: 5px; }}
-        .team {{ background: #e3f2fd; padding: 20px; border-radius: 8px; }}
-        .contributor {{ margin: 15px 0; padding: 15px; background: white; border-radius: 4px; }}
-        .contributor-name {{ font-weight: bold; font-size: 18px; color: #333; }}
-        .contributor-stats {{ color: #666; margin-top: 8px; }}
-        .details {{ margin-top: 20px; }}
-        .detail-item {{ padding: 10px; margin: 8px 0; border-left: 3px solid #ddd; }}
-        .success {{ border-color: green; background: #f1f9f1; }}
-        .warning {{ border-color: orange; background: #fff8e1; }}
-        .error {{ border-color: red; background: #ffebee; }}
-        .balanced {{ display: inline-block; padding: 5px 15px; background: #4caf50; color: white; border-radius: 20px; margin-top: 10px; }}
-        .unbalanced {{ display: inline-block; padding: 5px 15px; background: #ff9800; color: white; border-radius: 20px; margin-top: 10px; }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Iteration {data['iteration']}: {data['iteration_name']}</h1>
-        <div class="iteration">Evaluation du {data['date'][:10]}</div>
-    </div>
-    
-    <div class="score">{score:.1f}/100</div>
-    
-    <div class="section">
-        <h2>Resultats par Critere</h2>
-        <div class="criteria">
-"""
-
-        criteria_names = {
-            "functionality": "Fonctionnalite",
-            "tests": "Tests",
-            "quality": "Qualite Code",
-            "git": "Git/Commits",
+    def run(self):
+        scores = {
+            "functionality": self.evaluate_functionality(),
+            "tests":         self.evaluate_tests(),
+            "quality":       self.evaluate_quality(),
+            "git":           self.evaluate_git(),
         }
+        base = sum(scores.values())
+        bonus = self.evaluate_bonus(base)
+        final = min(base + bonus, 100.0)
+        scores["_total"] = final
 
-        for key, name in criteria_names.items():
-            weight = self.config[key]["weight"]
-            score_val = data["scores"][key]
-            html += f"""
-            <div class="criterion">
-                <div class="criterion-name">{name}</div>
-                <div class="criterion-score">{score_val:.1f}/{weight}</div>
-            </div>
-"""
+        print("\n--- RÉSULTATS PAR CRITÈRE ---\n")
+        weights = {
+            "functionality": self.config.get("functionality", {}).get("weight", 40),
+            "tests":         self.config.get("tests", {}).get("weight", 30),
+            "quality":       self.config.get("quality", {}).get("weight", 20),
+            "git":           self.config.get("git", {}).get("weight", 10),
+        }
+        for k, label in [("functionality","Fonctionnalité"),
+                          ("tests","Tests"),
+                          ("quality","Qualité Code"),
+                          ("git","Git/Commits")]:
+            print(f"  {label:20s}: {scores[k]:5.1f} / {weights[k]}")
 
-        html += """
-        </div>
-    </div>
-    
-    <div class="section team">
-        <h2>Equipe</h2>
-"""
+        if bonus > 0:
+            print(f"  {'Bonus':20s}: +{bonus:.1f}")
 
-        for contrib in data["contributors"]:
-            html += f"""
-        <div class="contributor">
-            <div class="contributor-name">{contrib['name']}</div>
-            <div class="contributor-stats">
-                Email: {contrib['email']}<br>
-                Commits: {contrib['commits']} ({contrib['ratio']:.1f}%)<br>
-                Lignes ajoutees: {contrib['lines_added']}
-            </div>
-        </div>
-"""
+        print(f"\n{'='*50}")
+        print(f"  NOTE FINALE : {final:.1f} / 100")
+        print(f"{'='*50}\n")
 
-        balance_class = "balanced" if data["contribution_balanced"] else "unbalanced"
-        balance_text = (
-            "Equilibree" if data["contribution_balanced"] else "Desequilibree"
+        print("--- ÉQUIPE ---\n")
+        balanced, ratios = self._contribution_balance(
+            self.config.get("git", {}).get("min_contribution_ratio", 30)
         )
-        html += f'        <span class="{balance_class}">Contribution: {balance_text}</span>\n'
+        for name, info in self.contributors.items():
+            print(f"  {name} ({info['email']})")
+            print(f"    {info['commits']} commits ({ratios.get(name, 0):.1f}%) "
+                  f"— {info['lines_added']} lignes ajoutées")
+        print(f"\n  Équilibre: {OK if balanced else FAIL}\n")
 
-        html += """
-    </div>
-    
-    <div class="section">
-        <h2>Details</h2>
-        <div class="details">
-"""
+        print("--- DÉTAILS ---\n")
+        for d in self.details:
+            print(f"  {d}")
 
-        for detail in data["details"]:
-            css_class = (
-                "success" if "✓" in detail else "warning" if "⚠" in detail else "error"
-            )
-            html += f'            <div class="detail-item {css_class}">{detail}</div>\n'
+        self.generate_reports(scores, bonus)
+        return final
 
-        html += """
-        </div>
-    </div>
-</body>
-</html>"""
 
-        return html
-
+# ---------------------------------------------------------------------------
+# Entrée
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     evaluator = CodeEvaluator()
-    final_score, scores = evaluator.run_evaluation()
-    evaluator.generate_reports(final_score, scores)
-
-    exit(0 if final_score >= 50 else 1)
-
-    def evaluate_functionality(self):
-        """Verifie que l'application demarre et repond"""
-        points = 0
-        max_points = 25
-
-        # Test lancement app (simulation rapide)
-        try:
-            result = subprocess.run(
-                ["python", "-c", 'import app; print("OK")'],
-                capture_output=True,
-                timeout=10,
-            )
-            if result.returncode == 0:
-                points += 15
-                self.details.append("✓ Application demarre sans erreur (15/15)")
-            else:
-                self.details.append("✗ Application ne demarre pas (0/15)")
-        except Exception as e:
-            self.details.append(f"✗ Erreur lancement: {e} (0/15)")
-
-        # Test API data endpoint
-        if os.path.exists("app.py"):
-            with open("app.py", "r") as f:
-                content = f.read()
-                if (
-                    '@app.get("/api/data")' in content
-                    or "@app.get('/api/data')" in content
-                ):
-                    points += 10
-                    self.details.append("✓ Endpoint /api/data present (10/10)")
-                else:
-                    self.details.append("✗ Endpoint /api/data manquant (0/10)")
-
-        self.criteria["functionality"]["score"] = (points / max_points) * self.criteria[
-            "functionality"
-        ]["weight"]
-        return points, max_points
-
-    def evaluate_tests(self):
-        """Evalue tests et couverture"""
-        points = 0
-        max_points = 20
-
-        # Tests present et passent
-        if os.path.exists("tests"):
-            try:
-                result = subprocess.run(
-                    ["pytest", "tests/", "-v"], capture_output=True, timeout=60
-                )
-                if result.returncode == 0:
-                    points += 10
-                    self.details.append("✓ Tests passent (10/10)")
-                else:
-                    points += 5
-                    self.details.append("⚠ Tests echouent partiellement (5/10)")
-            except:
-                self.details.append("✗ Erreur execution tests (0/10)")
-        else:
-            self.details.append("✗ Repertoire tests/ absent (0/10)")
-
-        # Couverture
-        if os.path.exists("coverage.xml"):
-            try:
-                import xml.etree.ElementTree as ET
-
-                tree = ET.parse("coverage.xml")
-                coverage = float(tree.getroot().attrib.get("line-rate", 0)) * 100
-
-                if coverage >= 70:
-                    points += 10
-                    self.details.append(f"✓ Couverture {coverage:.1f}% >= 70% (10/10)")
-                elif coverage >= 50:
-                    points += 7
-                    self.details.append(f"⚠ Couverture {coverage:.1f}% (7/10)")
-                else:
-                    points += 3
-                    self.details.append(f"✗ Couverture {coverage:.1f}% < 50% (3/10)")
-            except:
-                self.details.append("✗ Erreur lecture couverture (0/10)")
-        else:
-            self.details.append("✗ Rapport couverture absent (0/10)")
-
-        self.criteria["tests"]["score"] = (points / max_points) * self.criteria[
-            "tests"
-        ]["weight"]
-        return points, max_points
-
-    def evaluate_quality(self):
-        """Evalue qualite code (lint, complexite)"""
-        points = 0
-        max_points = 20
-
-        # Flake8
-        if os.path.exists("flake8_report.json"):
-            try:
-                with open("flake8_report.json", "r") as f:
-                    errors = json.load(f)
-                    total_errors = sum(len(v) for v in errors.values())
-
-                    if total_errors == 0:
-                        points += 10
-                        self.details.append("✓ Flake8: 0 erreur (10/10)")
-                    elif total_errors <= 10:
-                        points += 7
-                        self.details.append(f"⚠ Flake8: {total_errors} erreurs (7/10)")
-                    else:
-                        points += 3
-                        self.details.append(f"✗ Flake8: {total_errors} erreurs (3/10)")
-            except:
-                points += 5
-                self.details.append("⚠ Erreur lecture flake8 (5/10)")
-
-        # Complexite
-        if os.path.exists("complexity_report.json"):
-            try:
-                with open("complexity_report.json", "r") as f:
-                    data = json.load(f)
-                    high_complexity = sum(
-                        1
-                        for file_data in data.values()
-                        for func in file_data
-                        if func.get("complexity", 0) > 10
-                    )
-
-                    if high_complexity == 0:
-                        points += 10
-                        self.details.append("✓ Complexite acceptable (10/10)")
-                    elif high_complexity <= 3:
-                        points += 6
-                        self.details.append(
-                            f"⚠ {high_complexity} fonctions complexes (6/10)"
-                        )
-                    else:
-                        points += 2
-                        self.details.append(
-                            f"✗ {high_complexity} fonctions complexes (2/10)"
-                        )
-            except:
-                points += 5
-                self.details.append("⚠ Erreur lecture complexite (5/10)")
-
-        self.criteria["quality"]["score"] = (points / max_points) * self.criteria[
-            "quality"
-        ]["weight"]
-        return points, max_points
-
-    def evaluate_poo_solid(self):
-        """Evalue POO et principes SOLID"""
-        points = 0
-        max_points = 25
-
-        classes_found = []
-        expected_classes = ["Device", "Room", "Sensor", "Database"]
-
-        # Analyser fichiers Python
-        for py_file in Path(".").rglob("*.py"):
-            if "venv" in str(py_file) or "test" in str(py_file):
-                continue
-
-            try:
-                with open(py_file, "r") as f:
-                    tree = ast.parse(f.read())
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.ClassDef):
-                            classes_found.append(node.name)
-            except:
-                continue
-
-        # Classes presentes
-        num_classes = len(set(classes_found))
-        if num_classes >= 5:
-            points += 8
-            self.details.append(f"✓ {num_classes} classes definies (8/8)")
-        elif num_classes >= 3:
-            points += 5
-            self.details.append(f"⚠ {num_classes} classes definies (5/8)")
-        else:
-            points += 2
-            self.details.append(f"✗ Seulement {num_classes} classes (2/8)")
-
-        # SRP: methodes par classe
-        avg_methods = self._analyze_class_methods()
-        if avg_methods <= 10:
-            points += 7
-            self.details.append(f"✓ Moyenne {avg_methods:.1f} methodes/classe (7/7)")
-        else:
-            points += 3
-            self.details.append(f"⚠ Moyenne {avg_methods:.1f} methodes/classe (3/7)")
-
-        # Structure dossiers
-        if os.path.exists("domain") or os.path.exists("application"):
-            points += 5
-            self.details.append("✓ Structure en couches presente (5/5)")
-        else:
-            self.details.append("✗ Structure en couches absente (0/5)")
-
-        # Heritage/composition
-        if self._has_inheritance():
-            points += 5
-            self.details.append("✓ Heritage/composition utilise (5/5)")
-        else:
-            points += 2
-            self.details.append("⚠ Heritage/composition limite (2/5)")
-
-        self.criteria["poo_solid"]["score"] = (points / max_points) * self.criteria[
-            "poo_solid"
-        ]["weight"]
-        return points, max_points
-
-    def evaluate_organization(self):
-        """Evalue organisation du code"""
-        points = 0
-        max_points = 10
-
-        # Structure dossiers
-        expected_dirs = ["domain", "application", "infrastructure", "tests"]
-        found_dirs = sum(1 for d in expected_dirs if os.path.exists(d))
-
-        if found_dirs >= 3:
-            points += 5
-            self.details.append(f"✓ Structure dossiers ({found_dirs}/4 presents) (5/5)")
-        elif found_dirs >= 2:
-            points += 3
-            self.details.append(f"⚠ Structure partielle ({found_dirs}/4) (3/5)")
-        else:
-            self.details.append(f"✗ Structure incomplete ({found_dirs}/4) (0/5)")
-
-        # Taille fichiers
-        large_files = []
-        for py_file in Path(".").rglob("*.py"):
-            if "venv" not in str(py_file):
-                lines = len(open(py_file).readlines())
-                if lines > 300:
-                    large_files.append((py_file.name, lines))
-
-        if not large_files:
-            points += 3
-            self.details.append("✓ Fichiers < 300 lignes (3/3)")
-        else:
-            points += 1
-            self.details.append(f"⚠ {len(large_files)} fichiers > 300 lignes (1/3)")
-
-        # Separation concerns
-        if os.path.exists("app.py"):
-            with open("app.py", "r") as f:
-                if len(f.readlines()) < 200:
-                    points += 2
-                    self.details.append("✓ app.py bien structure (2/2)")
-                else:
-                    self.details.append("⚠ app.py volumineux (0/2)")
-
-        self.criteria["organization"]["score"] = (points / max_points) * self.criteria[
-            "organization"
-        ]["weight"]
-        return points, max_points
-
-    def _analyze_class_methods(self):
-        """Calcule moyenne methodes par classe"""
-        class_methods = []
-
-        for py_file in Path(".").rglob("*.py"):
-            if "venv" in str(py_file) or "test" in str(py_file):
-                continue
-
-            try:
-                with open(py_file, "r") as f:
-                    tree = ast.parse(f.read())
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.ClassDef):
-                            methods = [
-                                n for n in node.body if isinstance(n, ast.FunctionDef)
-                            ]
-                            class_methods.append(len(methods))
-            except:
-                continue
-
-        return sum(class_methods) / len(class_methods) if class_methods else 0
-
-    def _has_inheritance(self):
-        """Verifie presence heritage"""
-        for py_file in Path(".").rglob("*.py"):
-            if "venv" in str(py_file):
-                continue
-
-            try:
-                with open(py_file, "r") as f:
-                    tree = ast.parse(f.read())
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.ClassDef) and node.bases:
-                            return True
-            except:
-                continue
-
-        return False
-
-    def run_evaluation(self):
-        """Execute evaluation complete"""
-        print("\n" + "=" * 70)
-        print("EVALUATION AUTOMATIQUE - ITERATION POO")
-        print("=" * 70 + "\n")
-
-        self.evaluate_functionality()
-        self.evaluate_tests()
-        self.evaluate_quality()
-        self.evaluate_poo_solid()
-        self.evaluate_organization()
-
-        # Calcul note finale
-        total_score = sum(c["score"] for c in self.criteria.values())
-
-        # Affichage
-        print("\n--- RESULTATS PAR CRITERE ---\n")
-        for name, data in self.criteria.items():
-            print(f"{name.upper():20s}: {data['score']:.1f}/{data['weight']}")
-
-        print(f"\n{'='*70}")
-        print(f"NOTE FINALE: {total_score:.1f}/100")
-        print(f"{'='*70}\n")
-
-        print("--- DETAILS ---\n")
-        for detail in self.details:
-            print(f"  {detail}")
-
-        return total_score
-
-    def generate_reports(self, final_score):
-        """Genere rapports JSON et HTML"""
-
-        # JSON
-        report_data = {
-            "date": datetime.now().isoformat(),
-            "score": final_score,
-            "criteria": self.criteria,
-            "details": self.details,
-        }
-
-        with open("evaluation_report.json", "w") as f:
-            json.dump(report_data, f, indent=2)
-
-        # HTML
-        html = self._generate_html(report_data)
-        with open("evaluation_report.html", "w") as f:
-            f.write(html)
-
-        print("\n✓ Rapports generes: evaluation_report.json, evaluation_report.html")
-
-    def _generate_html(self, data):
-        """Genere rapport HTML"""
-        score = data["score"]
-        color = "green" if score >= 70 else "orange" if score >= 50 else "red"
-
-        html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Rapport Evaluation POO</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; max-width: 900px; margin: 50px auto; padding: 20px; }}
-        h1 {{ color: #333; border-bottom: 3px solid #667eea; padding-bottom: 10px; }}
-        .score {{ font-size: 48px; font-weight: bold; color: {color}; text-align: center; margin: 30px 0; }}
-        .criteria {{ background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-        .criterion {{ margin: 15px 0; padding: 10px; background: white; border-left: 4px solid #667eea; }}
-        .details {{ margin-top: 30px; }}
-        .detail-item {{ padding: 8px; margin: 5px 0; }}
-        .success {{ color: green; }}
-        .warning {{ color: orange; }}
-        .error {{ color: red; }}
-    </style>
-</head>
-<body>
-    <h1>Rapport d'Evaluation - Iteration POO</h1>
-    <p><strong>Date:</strong> {data['date']}</p>
-    
-    <div class="score">{score:.1f}/100</div>
-    
-    <div class="criteria">
-        <h2>Resultats par Critere</h2>
-"""
-
-        for name, crit in data["criteria"].items():
-            html += f"""
-        <div class="criterion">
-            <strong>{name.upper()}</strong>: {crit['score']:.1f}/{crit['weight']}
-        </div>
-"""
-
-        html += """
-    </div>
-    
-    <div class="details">
-        <h2>Details</h2>
-"""
-
-        for detail in data["details"]:
-            css_class = (
-                "success" if "✓" in detail else "warning" if "⚠" in detail else "error"
-            )
-            html += f'        <div class="detail-item {css_class}">{detail}</div>\n'
-
-        html += """
-    </div>
-</body>
-</html>"""
-
-        return html
-
-
-if __name__ == "__main__":
-    evaluator = CodeEvaluator()
-    final_score = evaluator.run_evaluation()
-    evaluator.generate_reports(final_score)
-
-    # Code retour selon note
-    exit(0 if final_score >= 50 else 1)
+    final_score = evaluator.run()
+    sys.exit(0 if final_score >= 50 else 1)

@@ -1,6 +1,6 @@
 iteration: 6
-name: "Dependency Injection + Repository - Partie 1"
-description: "Migration SQLite->PostgreSQL, DI Container, Repository, Unit of Work"
+name: "Repository Pattern + DI + Unit of Work"
+description: "Abstraire l'acces aux donnees avec Repository Pattern, gerer les transactions avec Unit of Work, injecter les dependances via DI Container - tout en conservant SQLite"
 
 functionality:
   weight: 40
@@ -9,21 +9,22 @@ functionality:
       points: 8
       type: "import_test"
       target: "app"
-    
-    - name: "PostgreSQL fonctionne"
-      points: 12
+
+    - name: "SQLite avec SQLAlchemy structure"
+      points: 10
       type: "database_check"
-      db_type: "postgresql"
-    
-    - name: "Gestion transactions"
+      db_type: "sqlite"
+      description: "SQLAlchemy utilise avec modeles declares, session geree proprement"
+
+    - name: "Gestion transactions batch"
       points: 12
       type: "endpoint_check"
       endpoints:
         - "/api/devices/batch"
         - "/api/transactions/rollback-test"
-    
-    - name: "Patterns DI + Repository"
-      points: 8
+
+    - name: "Patterns Repository + DI"
+      points: 10
       type: "pattern_detection"
       patterns:
         - "Repository"
@@ -42,14 +43,14 @@ tests:
         - "tests/unit/test_repository.py"
         - "tests/unit/test_unit_of_work.py"
         - "tests/unit/test_di_container.py"
-    
+
     integration:
       min_tests: 18
       weight: 30
       required_files:
-        - "tests/integration/test_postgresql.py"
+        - "tests/integration/test_sqlite_repository.py"
         - "tests/integration/test_transactions.py"
-    
+
     api:
       min_tests: 7
       weight: 15
@@ -67,3 +68,22 @@ git:
   min_commits_per_person: 12
   min_contribution_ratio: 35
   conventional_commits_ratio: 80
+
+bonus:
+  max_points: 10
+  cap_total: 100
+  description: "Interface graphique optionnelle - compense les pertes sur les criteres principaux"
+  checks:
+    - name: "Page Gestion Devices (CRUD visuel)"
+      points: 5
+      type: "frontend_check"
+      description: "Formulaire creation/edition/suppression de devices, donnees persistees en SQLite"
+      urls:
+        - "/devices"
+        - "/devices/new"
+    - name: "Interface import batch avec feedback"
+      points: 5
+      type: "frontend_check"
+      description: "UI pour soumettre un lot de devices, affichage du resultat de la transaction (succes ou rollback)"
+      urls:
+        - "/devices/import"

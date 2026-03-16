@@ -1,6 +1,6 @@
 iteration: 7
-name: "Dependency Injection + Repository - Partie 2"
-description: "Multi-utilisateurs, permissions, isolation donnees, Service Locator"
+name: "Multi-utilisateurs + Auth JWT + Isolation applicative"
+description: "Authentification JWT, RBAC, isolation des donnees par utilisateur au niveau applicatif via Repository per User - sans Row-Level Security PostgreSQL"
 
 functionality:
   weight: 40
@@ -9,7 +9,7 @@ functionality:
       points: 8
       type: "import_test"
       target: "app"
-    
+
     - name: "Authentification utilisateurs"
       points: 14
       type: "endpoint_check"
@@ -17,19 +17,21 @@ functionality:
         - "/api/auth/login"
         - "/api/auth/register"
         - "/api/auth/me"
-    
+
     - name: "Permissions et isolation"
       points: 10
       type: "endpoint_check"
       endpoints:
         - "/api/users/{id}/devices"
         - "/api/users/{id}/permissions"
-    
-    - name: "Service Locator pattern"
+
+    - name: "Patterns Auth + Isolation"
       points: 8
       type: "pattern_detection"
       patterns:
         - "ServiceLocator"
+        - "Repository"
+      description: "Repository per User pour isolation applicative, Service Locator pour resolution contexte"
 
 tests:
   weight: 30
@@ -43,14 +45,14 @@ tests:
         - "tests/unit/test_auth.py"
         - "tests/unit/test_permissions.py"
         - "tests/unit/test_service_locator.py"
-    
+
     integration:
       min_tests: 18
       weight: 30
       required_files:
         - "tests/integration/test_multi_users.py"
         - "tests/integration/test_data_isolation.py"
-    
+
     api:
       min_tests: 8
       weight: 15
@@ -68,3 +70,23 @@ git:
   min_commits_per_person: 12
   min_contribution_ratio: 35
   conventional_commits_ratio: 80
+
+bonus:
+  max_points: 10
+  cap_total: 100
+  description: "Interface graphique optionnelle - compense les pertes sur les criteres principaux"
+  checks:
+    - name: "Pages Login et Register"
+      points: 5
+      type: "frontend_check"
+      description: "Formulaires d'authentification fonctionnels avec gestion des erreurs (token invalide, acces refuse)"
+      urls:
+        - "/login"
+        - "/register"
+    - name: "Page Profils et Permissions"
+      points: 5
+      type: "frontend_check"
+      description: "Affichage des utilisateurs, roles (Admin/User/Guest) et menu utilisateur dans le header"
+      urls:
+        - "/users"
+        - "/users/permissions"
