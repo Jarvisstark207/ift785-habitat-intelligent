@@ -4,8 +4,6 @@ Tests API pour les endpoints batch et transactions - Iteration 6
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-from infrastructure.db.sqlalchemy_models import DeviceRecord
 
 
 @pytest.fixture

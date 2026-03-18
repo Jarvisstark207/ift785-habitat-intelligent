@@ -3,7 +3,7 @@ Tests unitaires pour le Unit of Work Pattern - Iteration 6
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 from infrastructure.db.unit_of_work import SQLAlchemyUnitOfWork
 from infrastructure.db.device_repository import DeviceRepository
 from infrastructure.db.sqlalchemy_models import DeviceRecord
@@ -81,7 +81,7 @@ class TestSQLAlchemyUnitOfWorkRollback:
 class TestSQLAlchemyUnitOfWorkAtomicity:
     def test_exception_triggers_rollback(self, mock_session_factory, mock_session):
         try:
-            with SQLAlchemyUnitOfWork(mock_session_factory) as uow:
+            with SQLAlchemyUnitOfWork(mock_session_factory):
                 raise RuntimeError("simulated error")
         except RuntimeError:
             pass

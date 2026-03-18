@@ -3,7 +3,7 @@ Tests unitaires pour le Repository Pattern - Iteration 6
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from infrastructure.db.device_repository import DeviceRepository
 from infrastructure.db.sqlalchemy_models import DeviceRecord
 

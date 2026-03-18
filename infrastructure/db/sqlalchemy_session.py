@@ -4,7 +4,7 @@ Fabrique de sessions SQLAlchemy pour l'iteration 6
 
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from infrastructure.db.sqlalchemy_models import Base
 import config
 

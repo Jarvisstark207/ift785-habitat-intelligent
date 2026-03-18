@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker
 
 from infrastructure.db.sqlalchemy_models import Base, DeviceRecord
 from infrastructure.db.unit_of_work import SQLAlchemyUnitOfWork
-from infrastructure.db.device_repository import DeviceRepository
 
 
 @pytest.fixture
