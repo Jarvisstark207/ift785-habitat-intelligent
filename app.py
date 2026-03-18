@@ -3,7 +3,10 @@ Wrapper pour l'évaluateur (Iteration 2)
 """
 
 from fastapi import FastAPI, Query
-from typing import Optional
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+from typing import Optional, List
 import threading
 import uvicorn
 
@@ -31,12 +34,17 @@ from domain.integrations.smart_home_adapter import (
 from domain.integrations.cache_proxy import CacheProxy
 from domain.integrations.decorators import LoggingDecorator
 from domain.dashboard.dashboard_facade import DashboardFacade
+from infrastructure.db.sqlalchemy_models import DeviceRecord
+from infrastructure.db.sqlalchemy_session import get_default_session_factory
+from infrastructure.db.unit_of_work import SQLAlchemyUnitOfWork
+from infrastructure.di.container import build_default_container
 
 # ============================================================================
 # CRÉATION APP
 # ============================================================================
 
 app = FastAPI(title="Habitat Intelligent")
+templates = Jinja2Templates(directory="templates")
 
 # Services
 _repo = SQLiteSensorRepository()
@@ -316,6 +324,147 @@ def get_dashboard_widgets():
     """Retourne les widgets du dashboard (Facade)"""
     widgets = _dashboard_facade.get_widgets()
     return {"status": "ok", "count": len(widgets), "widgets": widgets}
+
+
+# ============================================================================
+# ITERATION 6 - Repository + Unit of Work + DI Container
+# ============================================================================
+
+_session_factory = get_default_session_factory()
+_di_container = build_default_container()
+
+
+@app.post("/api/devices/batch")
+def create_devices_batch(devices: List[dict]):
+    """
+    Cree plusieurs devices en une seule transaction (Unit of Work).
+    Si un device est invalide, toute la transaction est annulee.
+    """
+    created = []
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        try:
+            for data in devices:
+                if not data.get("device_id") or not data.get("name"):
+                    uow.rollback()
+                    return {
+                        "status": "error",
+                        "message": "Chaque device doit avoir device_id et name",
+                        "rolled_back": True,
+                    }
+                record = DeviceRecord(
+                    device_id=data["device_id"],
+                    name=data["name"],
+                    room_name=data.get("room_name", ""),
+                    device_type=data.get("device_type", ""),
+                    manufacturer=data.get("manufacturer", ""),
+                    status=data.get("status", "active"),
+                )
+                uow.devices.save(record)
+                created.append(data["device_id"])
+            uow.commit()
+        except Exception as e:
+            uow.rollback()
+            return {"status": "error", "message": str(e), "rolled_back": True}
+    return {"status": "ok", "created": len(created), "device_ids": created}
+
+
+@app.get("/api/db/devices")
+def list_stored_devices():
+    """Liste les devices persistes via SQLAlchemy (Iteration 6)"""
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        devices = uow.devices.find_all()
+        return {"devices": [d.to_dict() for d in devices]}
+
+
+@app.delete("/api/db/devices/{device_id}")
+def delete_stored_device(device_id: str):
+    """Supprime un device persiste via SQLAlchemy (Iteration 6)"""
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        deleted = uow.devices.delete(device_id)
+        if deleted:
+            uow.commit()
+            return {"status": "ok", "message": f"Device {device_id} supprime"}
+        return {"status": "error", "message": "Device non trouve"}
+
+
+@app.put("/api/db/devices/{device_id}")
+def update_stored_device(device_id: str, data: dict):
+    """Met a jour un device persiste via SQLAlchemy (Iteration 6)"""
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        device = uow.devices.find_by_id(device_id)
+        if not device:
+            return {"status": "error", "message": "Device non trouve"}
+        if "name" in data:
+            device.name = data["name"]
+        if "room_name" in data:
+            device.room_name = data["room_name"]
+        if "device_type" in data:
+            device.device_type = data["device_type"]
+        if "manufacturer" in data:
+            device.manufacturer = data["manufacturer"]
+        uow.commit()
+        return {"status": "ok", "device": device.to_dict()}
+
+
+@app.get("/devices", response_class=HTMLResponse)
+def devices_list_page(request: Request):
+    """Page CRUD des devices (Iteration 6 - bonus)"""
+    return templates.TemplateResponse("devices.html", {"request": request})
+
+
+@app.get("/devices/new", response_class=HTMLResponse)
+def devices_new_page(request: Request):
+    """Formulaire creation d'un device (Iteration 6 - bonus)"""
+    return templates.TemplateResponse("devices_new.html", {"request": request})
+
+
+@app.get("/devices/import", response_class=HTMLResponse)
+def devices_import_page(request: Request):
+    """Interface import batch de devices (Iteration 6 - bonus)"""
+    return templates.TemplateResponse("devices_import.html", {"request": request})
+
+
+@app.post("/api/transactions/rollback-test")
+def test_transaction_rollback(data: dict = None):
+    """
+    Demonstration du mecanisme de rollback.
+    Insere des donnees puis provoque un rollback si force_rollback=true.
+    """
+    data = data or {}
+    force_rollback = data.get("force_rollback", True)
+    test_devices = data.get("devices", [
+        {"device_id": "test-rollback-1", "name": "Test Device 1"},
+        {"device_id": "test-rollback-2", "name": "Test Device 2"},
+    ])
+
+    inserted = []
+    with SQLAlchemyUnitOfWork(_session_factory) as uow:
+        for device_data in test_devices:
+            record = DeviceRecord(
+                device_id=device_data.get("device_id", ""),
+                name=device_data.get("name", ""),
+            )
+            uow.devices.save(record)
+            inserted.append(device_data.get("device_id", ""))
+
+        if force_rollback:
+            uow.rollback()
+            return {
+                "status": "ok",
+                "action": "rollback",
+                "message": "Transaction annulee avec succes",
+                "attempted_inserts": inserted,
+                "persisted": False,
+            }
+        uow.commit()
+
+    return {
+        "status": "ok",
+        "action": "commit",
+        "message": "Transaction validee",
+        "persisted_devices": inserted,
+        "persisted": True,
+    }
 
 
 # ============================================================================
