@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitat Intelligent - Connexion</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .auth-card { background: rgba(255,255,255,0.08); border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        .auth-card h2 { color: #fff; margin-bottom: 1.5rem; font-size: 1.8rem; }
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; color: #ccc; margin-bottom: 0.4rem; font-size: 0.9rem; }
+        .form-group input { width: 100%; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #fff; font-size: 1rem; box-sizing: border-box; }
+        .btn-primary { width: 100%; padding: 0.85rem; background: #7c3aed; color: #fff; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: 600; }
+        .btn-primary:hover { background: #6d28d9; }
+        .alert-error { background: rgba(220,38,38,0.15); border: 1px solid rgba(220,38,38,0.4); color: #fca5a5; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; display: none; }
+        .alert-success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #6ee7b7; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; display: none; }
+        .link-row { text-align: center; margin-top: 1.2rem; color: #aaa; font-size: 0.9rem; }
+        .link-row a { color: #a78bfa; text-decoration: none; }
+        .tokens-hint { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.82rem; color: #c4b5fd; }
+        .tokens-hint code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<div class="auth-card">
+    <h2>Connexion</h2>
+    <div class="tokens-hint">
+        <strong>Tokens de test :</strong><br>
+        <code>token_admin</code> &nbsp;|&nbsp; <code>token_user</code> &nbsp;|&nbsp; <code>token_guest</code>
+    </div>
+    <div class="alert-error" id="error-msg"></div>
+    <div class="alert-success" id="success-msg"></div>
+    <form id="login-form">
+        <div class="form-group">
+            <label>Nom d'utilisateur</label>
+            <input type="text" id="username" placeholder="ex: admin" required>
+        </div>
+        <div class="form-group">
+            <label>Mot de passe</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-primary">Se connecter</button>
+    </form>
+    <div class="link-row">Pas de compte ? <a href="/register">S'inscrire</a></div>
+    <div class="link-row" style="margin-top:0.5rem"><a href="/">&larr; Dashboard</a></div>
+</div>
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, password})
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+        localStorage.setItem('auth_token', data.token);
+        document.getElementById('success-msg').style.display = 'block';
+        document.getElementById('success-msg').textContent = 'Connexion reussie ! Redirection...';
+        setTimeout(() => window.location.href = '/users', 800);
+    } else {
+        document.getElementById('error-msg').style.display = 'block';
+        document.getElementById('error-msg').textContent = data.detail || data.message || 'Identifiants invalides';
+    }
+});
+</script>
+</body>
+</html>

@@ -12,6 +12,7 @@ et NON le fichier `app.py`. Donc sans ce pont, `app` n'existe pas et les tests Ã
 Ce fichier charge dynamiquement `app.py` et expose l'objet FastAPI `app`.
 """
 
+import sys
 from importlib.util import spec_from_file_location, module_from_spec
 from pathlib import Path
 
@@ -21,6 +22,7 @@ spec = spec_from_file_location("app_py_module", _APP_PY_PATH)
 _module = module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(_module)
+sys.modules["app_py_module"] = _module
 
 # Exposer l'instance FastAPI attendue par les tests : `from app import app`
 app = _module.app

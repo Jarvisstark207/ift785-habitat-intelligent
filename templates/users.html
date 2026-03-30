@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitat Intelligent - Utilisateurs</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        header h1 { color: #fff; font-size: 2rem; }
+        .nav-links a { color: #a78bfa; text-decoration: none; margin-left: 1rem; font-size: 0.9rem; }
+        .users-grid { display: grid; gap: 1rem; }
+        .user-card { background: rgba(255,255,255,0.07); border-radius: 12px; padding: 1.2rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .user-info h3 { color: #fff; margin: 0 0 0.3rem; }
+        .user-info .meta { color: #aaa; font-size: 0.85rem; }
+        .badge { display: inline-block; padding: 0.2rem 0.7rem; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+        .badge-admin { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+        .badge-user { background: rgba(124,58,237,0.2); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.4); }
+        .badge-guest { background: rgba(107,114,128,0.2); color: #d1d5db; border: 1px solid rgba(107,114,128,0.4); }
+        .btn-sm { padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; border: none; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #ccc; }
+        .empty-state { text-align: center; color: #666; padding: 3rem; }
+        .header-actions { display: flex; gap: 0.75rem; }
+        .btn-primary { background: #7c3aed; color: #fff; padding: 0.5rem 1.1rem; border-radius: 8px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div>
+            <h1>Habitat Intelligent</h1>
+            <p style="color:#aaa;margin:0">Gestion des utilisateurs</p>
+        </div>
+        <div class="nav-links">
+            <a href="/users/permissions">Permissions</a>
+            <a href="/devices">Devices</a>
+            <a href="/">Dashboard</a>
+        </div>
+    </header>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <h2 style="color:#fff;margin:0" id="users-count">Utilisateurs (0)</h2>
+        <div class="header-actions">
+            <a href="/register" class="btn-primary">+ Nouvel utilisateur</a>
+        </div>
+    </div>
+
+    <div class="users-grid" id="users-list">
+        <div class="empty-state">Chargement...</div>
+    </div>
+
+    <div style="margin-top:2rem"><a href="/" style="color:#a78bfa;text-decoration:none">&larr; Retour au dashboard</a></div>
+</div>
+<script>
+async function loadUsers() {
+    const token = localStorage.getItem('auth_token');
+    const headers = token ? {'Authorization': 'Bearer ' + token} : {};
+    try {
+        const res = await fetch('/api/auth/users', {headers});
+        if (!res.ok) { document.getElementById('users-list').innerHTML = '<div class="empty-state">Connexion requise. <a href="/login" style="color:#a78bfa">Se connecter</a></div>'; return; }
+        const data = await res.json();
+        const users = data.users || [];
+        document.getElementById('users-count').textContent = `Utilisateurs (${users.length})`;
+        if (users.length === 0) { document.getElementById('users-list').innerHTML = '<div class="empty-state">Aucun utilisateur enregistre.</div>'; return; }
+        document.getElementById('users-list').innerHTML = users.map(u => `
+            <div class="user-card">
+                <div class="user-info">
+                    <h3>${u.username}</h3>
+                    <div class="meta">ID: ${u.user_id}</div>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:center">
+                    <span class="badge badge-${u.role}">${u.role}</span>
+                    <button class="btn-sm btn-outline" onclick="viewDevices('${u.user_id}')">Devices</button>
+                </div>
+            </div>`).join('');
+    } catch(e) { document.getElementById('users-list').innerHTML = '<div class="empty-state">Erreur de chargement.</div>'; }
+}
+function viewDevices(userId) { window.location.href = `/api/users/${userId}/devices`; }
+loadUsers();
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitat Intelligent - Permissions</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        header h1 { color: #fff; font-size: 2rem; }
+        .nav-links a { color: #a78bfa; text-decoration: none; margin-left: 1rem; font-size: 0.9rem; }
+        .role-section { background: rgba(255,255,255,0.07); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.2rem; }
+        .role-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+        .role-header h3 { color: #fff; margin: 0; }
+        .badge { display: inline-block; padding: 0.2rem 0.7rem; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+        .badge-admin { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+        .badge-user { background: rgba(124,58,237,0.2); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.4); }
+        .badge-guest { background: rgba(107,114,128,0.2); color: #d1d5db; border: 1px solid rgba(107,114,128,0.4); }
+        .perms-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .perm-chip { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.82rem; font-family: monospace; }
+        .hierarchy-info { color: #aaa; font-size: 0.88rem; margin-bottom: 0.75rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div>
+            <h1>Habitat Intelligent</h1>
+            <p style="color:#aaa;margin:0">Roles et permissions</p>
+        </div>
+        <div class="nav-links">
+            <a href="/users">Utilisateurs</a>
+            <a href="/devices">Devices</a>
+            <a href="/">Dashboard</a>
+        </div>
+    </header>
+
+    <h2 style="color:#fff;margin-bottom:1.5rem">Matrice des permissions</h2>
+    <p class="hierarchy-info">Hierarchie : <strong style="color:#fca5a5">admin</strong> &gt; <strong style="color:#c4b5fd">user</strong> &gt; <strong style="color:#d1d5db">guest</strong></p>
+
+    <div class="role-section">
+        <div class="role-header">
+            <h3>Administrateur</h3>
+            <span class="badge badge-admin">admin</span>
+            <span style="color:#aaa;font-size:0.85rem">Niveau 3</span>
+        </div>
+        <div class="perms-grid">
+            <span class="perm-chip">device:read</span>
+            <span class="perm-chip">device:write</span>
+            <span class="perm-chip">device:delete</span>
+            <span class="perm-chip">user:read</span>
+            <span class="perm-chip">user:write</span>
+        </div>
+    </div>
+
+    <div class="role-section">
+        <div class="role-header">
+            <h3>Utilisateur</h3>
+            <span class="badge badge-user">user</span>
+            <span style="color:#aaa;font-size:0.85rem">Niveau 2</span>
+        </div>
+        <div class="perms-grid">
+            <span class="perm-chip">device:read</span>
+            <span class="perm-chip">device:write</span>
+        </div>
+    </div>
+
+    <div class="role-section">
+        <div class="role-header">
+            <h3>Invite</h3>
+            <span class="badge badge-guest">guest</span>
+            <span style="color:#aaa;font-size:0.85rem">Niveau 1</span>
+        </div>
+        <div class="perms-grid">
+            <span class="perm-chip">device:read</span>
+        </div>
+    </div>
+
+    <div id="user-perms-section" style="display:none">
+        <h2 style="color:#fff;margin:2rem 0 1rem">Mes permissions</h2>
+        <div id="my-perms"></div>
+    </div>
+
+    <div style="margin-top:2rem"><a href="/users" style="color:#a78bfa;text-decoration:none">&larr; Retour aux utilisateurs</a></div>
+</div>
+<script>
+async function loadMyPermissions() {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    const res = await fetch('/api/auth/me', {headers: {'Authorization': 'Bearer ' + token}});
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.user) {
+        document.getElementById('user-perms-section').style.display = 'block';
+        const perms = data.user.permissions || [];
+        document.getElementById('my-perms').innerHTML = `
+            <div style="background:rgba(255,255,255,0.07);border-radius:12px;padding:1.2rem">
+                <p style="color:#aaa;margin:0 0 0.75rem">Connecte en tant que <strong style="color:#fff">${data.user.username}</strong> (${data.user.role})</p>
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem">${perms.map(p => `<span class="perm-chip">${p}</span>`).join('')}</div>
+            </div>`;
+    }
+}
+loadMyPermissions();
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 Wrapper pour l'évaluateur (Iteration 2)
 """
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
@@ -38,6 +38,9 @@ from infrastructure.db.sqlalchemy_models import DeviceRecord
 from infrastructure.db.sqlalchemy_session import get_default_session_factory
 from infrastructure.db.unit_of_work import SQLAlchemyUnitOfWork
 from infrastructure.di.container import build_default_container
+from app.core.provided_auth import get_current_user, require_minimum_role, User
+from application.services.auth_service import AuthService
+from infrastructure.auth.service_locator import build_default_service_locator
 
 # ============================================================================
 # CRÉATION APP
@@ -465,6 +468,124 @@ def test_transaction_rollback(data: dict = None):
         "persisted_devices": inserted,
         "persisted": True,
     }
+
+
+# ============================================================================
+# ITERATION 7 - Auth + RBAC + Repository per User + Service Locator
+# ============================================================================
+
+_auth_service = AuthService()
+_service_locator = build_default_service_locator()
+
+
+@app.post("/api/auth/register")
+def auth_register(data: dict):
+    """Enregistre un nouvel utilisateur."""
+    try:
+        user = _auth_service.register(
+            username=data["username"],
+            password=data["password"],
+            role=data.get("role", "user"),
+        )
+        return {"status": "ok", "user": user.to_dict()}
+    except (KeyError, ValueError) as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/auth/login")
+def auth_login(data: dict):
+    """Authentifie un utilisateur et retourne un token."""
+    token = _auth_service.login(
+        username=data.get("username", ""),
+        password=data.get("password", ""),
+    )
+    if token is None:
+        return {"status": "error", "message": "Identifiants invalides"}
+    user = _auth_service.get_by_token(token)
+    return {"status": "ok", "token": token, "user": user.to_dict()}
+
+
+@app.get("/api/auth/me")
+def auth_me(current_user: User = Depends(get_current_user)):
+    """Retourne le profil de l'utilisateur authentifie."""
+    user_account = _auth_service.get_by_token(
+        current_user.id if current_user.id.startswith("token_") else None
+    )
+    return {
+        "user": {
+            "id": current_user.id,
+            "role": current_user.role,
+            "permissions": current_user.permissions,
+            "username": user_account.username if user_account else current_user.id,
+        }
+    }
+
+
+@app.get("/api/auth/users")
+def list_users(current_user: User = Depends(get_current_user)):
+    """Liste tous les utilisateurs (admin only)."""
+    require_minimum_role(current_user, "admin")
+    users = _auth_service.get_all_users()
+    return {"count": len(users), "users": [u.to_dict() for u in users]}
+
+
+@app.get("/api/users/{user_id}/devices")
+def get_user_devices(user_id: str, current_user: User = Depends(get_current_user)):
+    """Retourne les devices d'un utilisateur (isolation applicative)."""
+    if current_user.id != user_id:
+        require_minimum_role(current_user, "admin")
+    repo = _service_locator.resolve_for_user("user_device_repository", user_id)
+    return {"user_id": user_id, "devices": repo.get_all(), "count": repo.count()}
+
+
+@app.post("/api/users/{user_id}/devices")
+def add_user_device(
+    user_id: str,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Ajoute un device pour un utilisateur."""
+    if current_user.id != user_id:
+        require_minimum_role(current_user, "admin")
+    repo = _service_locator.resolve_for_user("user_device_repository", user_id)
+    device = repo.add_device(data.get("device_id", ""), data)
+    return {"status": "ok", "device": device}
+
+
+@app.get("/api/users/{user_id}/permissions")
+def get_user_permissions(user_id: str, current_user: User = Depends(get_current_user)):
+    """Retourne les permissions d'un utilisateur."""
+    if current_user.id != user_id:
+        require_minimum_role(current_user, "admin")
+    permissions = _auth_service.get_user_permissions(user_id)
+    if not permissions:
+        permissions = current_user.permissions if current_user.id == user_id else []
+    return {"user_id": user_id, "permissions": permissions}
+
+
+# Frontend routes (bonus iteration 7)
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    """Page de connexion (Iteration 7 - bonus)"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page(request: Request):
+    """Page d'inscription (Iteration 7 - bonus)"""
+    return templates.TemplateResponse("register.html", {"request": request})
+
+
+@app.get("/users", response_class=HTMLResponse)
+def users_page(request: Request):
+    """Page de gestion des utilisateurs (Iteration 7 - bonus)"""
+    return templates.TemplateResponse("users.html", {"request": request})
+
+
+@app.get("/users/permissions", response_class=HTMLResponse)
+def users_permissions_page(request: Request):
+    """Page des roles et permissions (Iteration 7 - bonus)"""
+    return templates.TemplateResponse("users_permissions.html", {"request": request})
 
 
 # ============================================================================
