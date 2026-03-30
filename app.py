@@ -529,38 +529,38 @@ def list_users(current_user: User = Depends(get_current_user)):
     return {"count": len(users), "users": [u.to_dict() for u in users]}
 
 
-@app.get("/api/users/{user_id}/devices")
-def get_user_devices(user_id: str, current_user: User = Depends(get_current_user)):
+@app.get("/api/users/{id}/devices")
+def get_user_devices(id: str, current_user: User = Depends(get_current_user)):
     """Retourne les devices d'un utilisateur (isolation applicative)."""
-    if current_user.id != user_id:
+    if current_user.id != id:
         require_minimum_role(current_user, "admin")
-    repo = _service_locator.resolve_for_user("user_device_repository", user_id)
-    return {"user_id": user_id, "devices": repo.get_all(), "count": repo.count()}
+    repo = _service_locator.resolve_for_user("user_device_repository", id)
+    return {"user_id": id, "devices": repo.get_all(), "count": repo.count()}
 
 
-@app.post("/api/users/{user_id}/devices")
+@app.post("/api/users/{id}/devices")
 def add_user_device(
-    user_id: str,
+    id: str,
     data: dict,
     current_user: User = Depends(get_current_user),
 ):
     """Ajoute un device pour un utilisateur."""
-    if current_user.id != user_id:
+    if current_user.id != id:
         require_minimum_role(current_user, "admin")
-    repo = _service_locator.resolve_for_user("user_device_repository", user_id)
+    repo = _service_locator.resolve_for_user("user_device_repository", id)
     device = repo.add_device(data.get("device_id", ""), data)
     return {"status": "ok", "device": device}
 
 
-@app.get("/api/users/{user_id}/permissions")
-def get_user_permissions(user_id: str, current_user: User = Depends(get_current_user)):
+@app.get("/api/users/{id}/permissions")
+def get_user_permissions(id: str, current_user: User = Depends(get_current_user)):
     """Retourne les permissions d'un utilisateur."""
-    if current_user.id != user_id:
+    if current_user.id != id:
         require_minimum_role(current_user, "admin")
-    permissions = _auth_service.get_user_permissions(user_id)
+    permissions = _auth_service.get_user_permissions(id)
     if not permissions:
-        permissions = current_user.permissions if current_user.id == user_id else []
-    return {"user_id": user_id, "permissions": permissions}
+        permissions = current_user.permissions if current_user.id == id else []
+    return {"user_id": id, "permissions": permissions}
 
 
 # Frontend routes (bonus iteration 7)

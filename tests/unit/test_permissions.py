@@ -18,13 +18,13 @@ def reset_store():
 
 
 class TestRoleHierarchy:
-    def test_admin_level_is_3(self):
+    def test_admin_level_is_three(self):
         assert ROLE_HIERARCHY["admin"] == 3
 
-    def test_user_level_is_2(self):
+    def test_user_level_is_two(self):
         assert ROLE_HIERARCHY["user"] == 2
 
-    def test_guest_level_is_1(self):
+    def test_guest_level_is_one(self):
         assert ROLE_HIERARCHY["guest"] == 1
 
     def test_admin_greater_than_user(self):

@@ -24,7 +24,7 @@ class TestDomicileState:
         state = DomicileState()
         assert state.get_mode_name() == "domicile"
 
-    def test_config_domicile_lumieres_100(self):
+    def test_config_domicile_lumieres_cent_pct(self):
         """En mode domicile, les lumieres couloir sont a 100%"""
         state = DomicileState()
         config = state.get_mode_config()
@@ -46,7 +46,7 @@ class TestNuitState:
         """Le nom du mode est 'nuit'"""
         assert NuitState().get_mode_name() == "nuit"
 
-    def test_config_nuit_lumieres_10(self):
+    def test_config_nuit_lumieres_dix_pct(self):
         """En mode nuit, les lumieres couloir sont a 10%"""
         config = NuitState().get_mode_config()
         assert config["lights_corridor"] == 10
