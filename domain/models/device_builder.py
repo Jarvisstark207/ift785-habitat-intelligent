@@ -103,56 +103,54 @@ class DeviceBuilder:
             self._sensitivity = sensitivity
         return self
 
-    def build(self) -> Device:
-        """Construit le device"""
-        if not self._device_id:
-            raise ValueError("device_id is required")
-        if not self._name:
-            raise ValueError("name is required")
-        if not self._room_name:
-            raise ValueError("room_name is required")
-        if not self._device_type:
-            raise ValueError("device_type is required")
+    def _validate(self) -> None:
+        """Valide que les champs obligatoires sont définis."""
+        required = {
+            "device_id": self._device_id,
+            "name": self._name,
+            "room_name": self._room_name,
+            "device_type": self._device_type,
+        }
+        for field, value in required.items():
+            if not value:
+                raise ValueError(f"{field} is required")
 
-        factory = DeviceFactoryProvider.get_factory(self._manufacturer)
-
-        if self._device_type.lower() == "light":
-            return factory.create_light(
-                device_id=self._device_id,
-                name=self._name,
+    def _create_device(self, factory, device_type: str) -> Device:
+        """Dispatch vers la méthode factory selon le type de device."""
+        creators = {
+            "light": lambda f: f.create_light(
+                device_id=self._device_id, name=self._name,
                 room_name=self._room_name,
-                brightness=self._brightness,
-                color=self._color,
-            )
-        elif self._device_type.lower() == "thermostat":
-            return factory.create_thermostat(
-                device_id=self._device_id,
-                name=self._name,
+                brightness=self._brightness, color=self._color,
+            ),
+            "thermostat": lambda f: f.create_thermostat(
+                device_id=self._device_id, name=self._name,
                 room_name=self._room_name,
                 temperature=self._temperature,
-                target_temperature=self._target_temperature,
-                mode=self._mode,
-            )
-        elif self._device_type.lower() == "co2_sensor":
-            return factory.create_co2_sensor(
-                device_id=self._device_id,
-                name=self._name,
+                target_temperature=self._target_temperature, mode=self._mode,
+            ),
+            "co2_sensor": lambda f: f.create_co2_sensor(
+                device_id=self._device_id, name=self._name,
                 room_name=self._room_name,
-                ppm=self._ppm,
-                alarm_threshold=self._alarm_threshold,
-            )
-        elif self._device_type.lower() == "motion_sensor":
-            return factory.create_motion_sensor(
-                device_id=self._device_id,
-                name=self._name,
+                ppm=self._ppm, alarm_threshold=self._alarm_threshold,
+            ),
+            "motion_sensor": lambda f: f.create_motion_sensor(
+                device_id=self._device_id, name=self._name,
                 room_name=self._room_name,
                 motion_detected=self._motion_detected,
                 sensitivity=self._sensitivity,
-            )
-        else:
-            raise ValueError(
-                f"Unknown device_type: {self._device_type}"
-            )
+            ),
+        }
+        creator = creators.get(device_type)
+        if creator is None:
+            raise ValueError(f"Unknown device_type: {device_type}")
+        return creator(factory)
+
+    def build(self) -> Device:
+        """Construit le device"""
+        self._validate()
+        factory = DeviceFactoryProvider.get_factory(self._manufacturer)
+        return self._create_device(factory, self._device_type.lower())
 
     def reset(self) -> DeviceBuilder:
         """Réinitialise le builder"""
