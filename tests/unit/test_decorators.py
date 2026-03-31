@@ -125,3 +125,67 @@ class TestLogCall:
         def greet(name="World"):
             return f"Hello, {name}!"
         assert greet(name="Alice") == "Hello, Alice!"
+
+
+# ---------------------------------------------------------------------------
+# @validate_input
+# ---------------------------------------------------------------------------
+
+class TestValidateInput:
+    def test_preserves_function_name(self):
+        @validate_input(SampleSchema)
+        def handler(data):
+            return data
+        assert handler.__name__ == "handler"
+
+    def test_valid_dict_passes(self):
+        @validate_input(SampleSchema)
+        def handler(data):
+            return "ok"
+        result = handler({"name": "test", "value": 1})
+        assert result == "ok"
+
+    def test_invalid_dict_raises_422(self):
+        @validate_input(SampleSchema)
+        def handler(data):
+            return "ok"
+        with pytest.raises(HTTPException) as exc_info:
+            handler({"name": "test"})  # missing 'value'
+        assert exc_info.value.status_code == 422
+
+    def test_valid_pydantic_model_passes(self):
+        @validate_input(SampleSchema)
+        def handler(data):
+            return "ok"
+        model = SampleSchema(name="test", value=5)
+        result = handler(model)
+        assert result == "ok"
+
+    def test_async_valid_dict_passes(self):
+        @validate_input(SampleSchema)
+        async def handler(data):
+            return "ok"
+        result = run(handler({"name": "test", "value": 2}))
+        assert result == "ok"
+
+    def test_async_invalid_dict_raises_422(self):
+        @validate_input(SampleSchema)
+        async def handler(data):
+            return "ok"
+        with pytest.raises(HTTPException) as exc_info:
+            run(handler({"value": 2}))  # missing 'name'
+        assert exc_info.value.status_code == 422
+
+    def test_preserves_async_function_name(self):
+        @validate_input(SampleSchema)
+        async def async_handler(data):
+            pass
+        assert async_handler.__name__ == "async_handler"
+
+    def test_wrong_type_raises_422(self):
+        @validate_input(SampleSchema)
+        def handler(data):
+            return "ok"
+        with pytest.raises(HTTPException) as exc_info:
+            handler({"name": "test", "value": "not_an_int"})
+        assert exc_info.value.status_code == 422
