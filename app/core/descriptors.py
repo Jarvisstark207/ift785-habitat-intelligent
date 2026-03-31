@@ -46,3 +46,38 @@ class TypedField:
     def __delete__(self, obj):
         if hasattr(obj, self._attr_name):
             delattr(obj, self._attr_name)
+
+
+class RangedField:
+    """
+    Descripteur qui vérifie qu'une valeur numérique est dans l'intervalle [min_val, max_val].
+    Lève TypeError si la valeur n'est pas numérique, ValueError si hors intervalle.
+    """
+
+    def __init__(self, min_val, max_val):
+        self.min_val = min_val
+        self.max_val = max_val
+        self._attr_name = None
+
+    def __set_name__(self, owner, name):
+        self._attr_name = f"_{name}_val"
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return getattr(obj, self._attr_name, None)
+
+    def __set__(self, obj, value):
+        if not isinstance(value, (int, float)):
+            raise TypeError(
+                f"Attendu un nombre, reçu {type(value).__name__} : {value!r}"
+            )
+        if not (self.min_val <= value <= self.max_val):
+            raise ValueError(
+                f"Valeur {value} hors de l'intervalle [{self.min_val}, {self.max_val}]"
+            )
+        setattr(obj, self._attr_name, value)
+
+    def __delete__(self, obj):
+        if hasattr(obj, self._attr_name):
+            delattr(obj, self._attr_name)
