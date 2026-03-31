@@ -36,3 +36,26 @@ class DeviceMeta(ABCMeta):
         """Retourne la classe correspondant au nom de type, ou None."""
         return mcs.registry.get(type_name)
 
+
+class DeviceBase(metaclass=DeviceMeta):
+    """
+    Classe de base pour les devices avec validation par descripteurs.
+    Toute sous-classe est enregistrée automatiquement dans DeviceMeta.registry.
+    """
+    name = TypedField(str, max_length=128)
+    status = TypedField(str, allowed=["active", "inactive", "error"])
+
+    def __init__(self, name: str = "Unknown", status: str = "active"):
+        self.name = name
+        self.status = status
+
+    def to_dict(self) -> dict:
+        return {
+            "type": type(self).__name__,
+            "name": self.name,
+            "status": self.status,
+        }
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(name={self.name!r}, status={self.status!r})"
+
