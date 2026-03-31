@@ -4,6 +4,7 @@ from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from starlette.requests import Request
 from typing import Optional
 
@@ -15,6 +16,20 @@ from application.services.stats_service import StatsService
 from domain.models.alert_config import AlertConfigUpdate
 from infrastructure.db.sqlite_sensor_repo import SQLiteSensorRepository
 from config import LOCATIONS
+
+# Iter 8 - Méta-programmation
+from app.core.decorators import log_call, validate_input, require_role
+from app.core import log_store
+from domain.models.device_meta import DeviceMeta
+
+
+class DeviceCreateSchema(BaseModel):
+    """Schéma Pydantic pour la création d'un device (iter 8)."""
+    device_id: str
+    name: str
+    room_name: str
+    device_type: str
+    manufacturer: str = "Generic"
 
 
 def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
@@ -135,6 +150,110 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
             "count": len(devices),
             "devices": [device.to_dict() for device in devices],
         }
+
+    # ========================================================================
+    # ITERATION 8 - Méta-programmation (décorateurs + métaclasse)
+    # ========================================================================
+
+    @app.get("/api/devices/types")
+    @log_call
+    def list_device_types():
+        """Liste tous les types de devices enregistrés par métaclasse"""
+        registry = DeviceMeta.device_registry
+        return {
+            "count": len(registry),
+            "types": list(registry.keys()),
+        }
+
+    @app.get("/api/devices/types/{type_name}/info")
+    @log_call
+    def get_device_type_info(type_name: str):
+        """Introspection d'un type de device enregistré (champs, validations)"""
+        from app.core.descriptors import TypedField, RangedField
+        cls = DeviceMeta.registry.get(type_name)
+        if cls is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail=f"Type '{type_name}' inconnu")
+        fields = []
+        validations = []
+        for name, val in vars(cls).items():
+            if name.startswith("_"):
+                continue
+            if isinstance(val, TypedField):
+                fields.append(name)
+                info = f"{name}: TypedField({val.expected_type.__name__}"
+                if val.max_length:
+                    info += f", max={val.max_length}"
+                if val.allowed:
+                    info += f", allowed={val.allowed}"
+                info += ")"
+                validations.append(info)
+            elif isinstance(val, RangedField):
+                fields.append(name)
+                validations.append(
+                    f"{name}: RangedField([{val.min_val}, {val.max_val}])"
+                )
+        return {
+            "name": type_name,
+            "module": cls.__module__,
+            "fields": fields,
+            "validations": validations,
+            "has_to_dict": hasattr(cls, "to_dict"),
+        }
+
+    # -----------------------------------------------------------------------
+    # ITERATION 8 BONUS - Pages UI (DeviceRegistry + Logs transversaux)
+    # -----------------------------------------------------------------------
+
+    @app.get("/devices/registry", response_class=HTMLResponse)
+    def page_device_registry(request: Request):
+        """Page UI — visualisation des types enregistrés par DeviceMeta"""
+        return templates.TemplateResponse(
+            "device_registry.html", {"request": request}
+        )
+
+    @app.get("/admin/logs", response_class=HTMLResponse)
+    def page_admin_logs(request: Request):
+        """Page UI — journal des appels décorés @log_call"""
+        return templates.TemplateResponse(
+            "admin_logs.html", {"request": request}
+        )
+
+    @app.get("/api/admin/logs")
+    @log_call
+    def api_get_logs():
+        """API JSON — retourne les entrées du journal @log_call"""
+        entries = log_store.get_entries()
+        return {"count": len(entries), "entries": entries}
+
+    @app.delete("/api/admin/logs")
+    def api_clear_logs():
+        """Vide le journal des logs (utile pour les tests / reset UI)"""
+        log_store.clear()
+        return {"status": "ok", "message": "Journal vidé"}
+
+    @app.post("/api/devices/admin/create")
+    @log_call
+    @require_role("admin")
+    @validate_input(DeviceCreateSchema)
+    async def admin_create_device(data: DeviceCreateSchema):
+        """Crée un device — réservé aux administrateurs (iter 8)"""
+        config = data.model_dump()
+        device = _device_service.build_device(config)
+        return {"status": "ok", "device": device.to_dict()}
+
+    @app.get("/api/devices/admin/list")
+    @log_call
+    @require_role("admin")
+    async def admin_list_devices():
+        """Liste tous les devices — réservé aux administrateurs (iter 8)"""
+        devices = _device_service.get_all_devices()
+        return {
+            "count": len(devices),
+            "devices": [d.to_dict() for d in devices],
+        }
+
+    # -----------------------------------------------------------------------
 
     @app.get("/api/devices/{device_id}")
     def get_device(device_id: str):
