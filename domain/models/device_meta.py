@@ -59,3 +59,22 @@ class DeviceBase(metaclass=DeviceMeta):
     def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self.name!r}, status={self.status!r})"
 
+
+class TemperatureSensor(DeviceBase):
+    """Capteur de température — s'enregistre automatiquement dans DeviceMeta.registry."""
+    temperature = RangedField(min_val=-50, max_val=100)
+
+    def __init__(
+        self,
+        name: str = "TemperatureSensor",
+        temperature: float = 20.0,
+        status: str = "active",
+    ):
+        super().__init__(name=name, status=status)
+        self.temperature = temperature
+
+    def to_dict(self) -> dict:
+        d = super().to_dict()
+        d["temperature"] = self.temperature
+        return d
+
