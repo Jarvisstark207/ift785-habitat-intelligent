@@ -128,3 +128,99 @@ class TestTypedField:
         r = SensorReadingModel()
         with pytest.raises(ValueError):
             r.unit = "a" * 21  # > 20 chars
+
+
+# ---------------------------------------------------------------------------
+# RangedField
+# ---------------------------------------------------------------------------
+
+class TestRangedField:
+    def test_set_and_get_valid_value(self):
+        obj = PersonModel()
+        obj.age = 30
+        assert obj.age == 30
+
+    def test_value_below_min_raises_valueerror(self):
+        obj = PersonModel()
+        with pytest.raises(ValueError):
+            obj.age = -1
+
+    def test_value_above_max_raises_valueerror(self):
+        obj = PersonModel()
+        with pytest.raises(ValueError):
+            obj.age = 200
+
+    def test_boundary_min_valid(self):
+        obj = PersonModel()
+        obj.age = 0
+        assert obj.age == 0
+
+    def test_boundary_max_valid(self):
+        obj = PersonModel()
+        obj.age = 150
+        assert obj.age == 150
+
+    def test_not_assertionerror(self):
+        obj = PersonModel()
+        try:
+            obj.age = -1
+        except AssertionError:
+            pytest.fail("RangedField ne doit pas lever AssertionError")
+        except ValueError:
+            pass
+
+    def test_non_numeric_raises_typeerror(self):
+        obj = PersonModel()
+        with pytest.raises(TypeError):
+            obj.age = "thirty"
+
+    def test_float_value_valid(self):
+        d = DeviceModel()
+        d.temperature = 36.6
+        assert d.temperature == 36.6
+
+    def test_temperature_too_high(self):
+        d = DeviceModel()
+        with pytest.raises(ValueError):
+            d.temperature = 999
+
+    def test_temperature_too_low(self):
+        d = DeviceModel()
+        with pytest.raises(ValueError):
+            d.temperature = -100
+
+    def test_sensitivity_valid(self):
+        d = DeviceModel()
+        d.sensitivity = 5
+        assert d.sensitivity == 5
+
+    def test_sensitivity_out_of_range(self):
+        d = DeviceModel()
+        with pytest.raises(ValueError):
+            d.sensitivity = 11
+
+    def test_class_access_returns_descriptor(self):
+        descriptor = PersonModel.age
+        assert isinstance(descriptor, RangedField)
+
+    def test_multiple_instances_independent(self):
+        d1 = DeviceModel()
+        d2 = DeviceModel()
+        d1.temperature = 20.0
+        d2.temperature = 35.0
+        assert d1.temperature == 20.0
+        assert d2.temperature == 35.0
+
+    def test_get_returns_none_before_set(self):
+        obj = PersonModel()
+        assert obj.age is None
+
+    def test_sensor_reading_value_valid(self):
+        r = SensorReadingModel()
+        r.value = 42.5
+        assert r.value == 42.5
+
+    def test_sensor_reading_value_out_of_range(self):
+        r = SensorReadingModel()
+        with pytest.raises(ValueError):
+            r.value = 9999
