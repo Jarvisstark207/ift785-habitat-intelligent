@@ -5,7 +5,7 @@ Couvre : @log_call, @validate_input, @require_role
 
 import asyncio
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from fastapi import HTTPException
 from pydantic import BaseModel
 

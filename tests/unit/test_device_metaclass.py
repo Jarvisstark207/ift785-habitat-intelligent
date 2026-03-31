@@ -9,7 +9,6 @@ from domain.models.device_meta import (
     DeviceBase,
     TemperatureSensor,
     MotionDetector,
-    HumiditySensor,
     instantiate_from_registry,
 )
 
