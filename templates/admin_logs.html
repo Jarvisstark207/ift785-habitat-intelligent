@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logs Transversaux - Habitat Intelligent</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .logs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .logs-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .logs-table th { background: #37474f; color: white; padding: 14px 16px; text-align: left; font-weight: 600; }
+        .logs-table td { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; font-size: 13px; font-family: monospace; }
+        .logs-table tr:last-child td { border-bottom: none; }
+        .logs-table tr:hover td { background: #f5f5f5; }
+        .badge-ok { background: #e8f5e9; color: #2e7d32; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-err { background: #ffebee; color: #c62828; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .duration-fast { color: #2e7d32; }
+        .duration-slow { color: #e65100; }
+        .duration-medium { color: #f57f17; }
+        .info-box { background: #eceff1; border-left: 4px solid #37474f; padding: 16px 20px; border-radius: 6px; margin-bottom: 24px; }
+        .info-box p { margin: 0; color: #444; font-size: 14px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .btn-danger { background: #e53935; color: white; }
+        .btn-refresh { background: #546e7a; color: white; }
+        .controls { display: flex; gap: 10px; align-items: center; }
+        .live-dot { width: 10px; height: 10px; background: #4caf50; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+        .nav-link { color: #667eea; text-decoration: none; font-size: 14px; }
+        .error-msg { color: #c62828; font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .total-count { font-size: 13px; color: #888; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Habitat Intelligent</h1>
+        <p class="subtitle">Logs Transversaux — @log_call</p>
+    </header>
+
+    <div class="info-box">
+        <p>
+            <strong>Méta-programmation — Itération 8 :</strong>
+            Chaque appel ci-dessous a été intercepté par le décorateur <code>@log_call</code>.
+            La logique de log est <em>invisible</em> dans le code métier — elle vit uniquement dans le décorateur.
+        </p>
+    </div>
+
+    <div class="logs-header">
+        <div>
+            <h2 style="margin:0;display:inline">Journal des appels</h2>
+            <span class="total-count" id="total-count"></span>
+            &nbsp;<span class="live-dot" title="Mise à jour automatique"></span>
+        </div>
+        <div class="controls">
+            <a href="/" class="nav-link">← Dashboard</a>
+            <button class="btn btn-refresh" onclick="loadLogs()">↺ Rafraîchir</button>
+            <button class="btn btn-danger" onclick="clearLogs()">🗑 Vider</button>
+        </div>
+    </div>
+
+    <div id="logs-container">
+        <div class="empty-state"><h3>Chargement...</h3></div>
+    </div>
+</div>
+
+<script>
+async function loadLogs() {
+    const res = await fetch('/api/admin/logs');
+    const data = await res.json();
+    const entries = data.entries || [];
+
+    const countEl = document.getElementById('total-count');
+    countEl.textContent = `(${entries.length} entrée${entries.length !== 1 ? 's' : ''})`;
+
+    const container = document.getElementById('logs-container');
+
+    if (entries.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <h3>Aucun appel enregistré</h3>
+                <p>Les appels aux endpoints décorés avec <code>@log_call</code> apparaîtront ici.</p>
+            </div>`;
+        return;
+    }
+
+    const rows = entries.map(e => {
+        const dClass = e.duration_ms < 50 ? 'duration-fast'
+                     : e.duration_ms < 200 ? 'duration-medium'
+                     : 'duration-slow';
+        const statusBadge = e.success
+            ? '<span class="badge-ok">OK</span>'
+            : '<span class="badge-err">ERREUR</span>';
+        const errMsg = e.error
+            ? `<div class="error-msg" title="${e.error}">${e.error}</div>`
+            : '';
+        return `
+            <tr>
+                <td>${e.timestamp}</td>
+                <td><strong>${e.endpoint}</strong></td>
+                <td class="${dClass}">${e.duration_ms} ms</td>
+                <td>${statusBadge}${errMsg}</td>
+            </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="logs-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Endpoint</th>
+                    <th>Durée</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+async function clearLogs() {
+    await fetch('/api/admin/logs', { method: 'DELETE' });
+    loadLogs();
+}
+
+loadLogs();
+setInterval(loadLogs, 3000);
+</script>
+</body>
+</html>
