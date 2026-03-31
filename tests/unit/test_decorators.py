@@ -189,3 +189,111 @@ class TestValidateInput:
         with pytest.raises(HTTPException) as exc_info:
             handler({"name": "test", "value": "not_an_int"})
         assert exc_info.value.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# @require_role
+# ---------------------------------------------------------------------------
+
+class TestRequireRole:
+    def test_injects_request_into_signature(self):
+        import inspect
+
+        @require_role("user")
+        async def endpoint():
+            return "ok"
+
+        sig = inspect.signature(endpoint)
+        assert "request" in sig.parameters
+
+    def test_preserves_function_name(self):
+        @require_role("admin")
+        async def admin_endpoint():
+            pass
+        assert admin_endpoint.__name__ == "admin_endpoint"
+
+    def test_admin_token_allows_admin_endpoint(self):
+        @require_role("admin")
+        async def endpoint(**kwargs):
+            return "allowed"
+
+        mock_req = make_mock_request("token_admin")
+        result = run(endpoint(request=mock_req))
+        assert result == "allowed"
+
+    def test_user_token_allows_user_endpoint(self):
+        @require_role("user")
+        async def endpoint(**kwargs):
+            return "allowed"
+
+        mock_req = make_mock_request("token_user")
+        result = run(endpoint(request=mock_req))
+        assert result == "allowed"
+
+    def test_admin_token_allows_user_endpoint(self):
+        @require_role("user")
+        async def endpoint(**kwargs):
+            return "allowed"
+
+        mock_req = make_mock_request("token_admin")
+        result = run(endpoint(request=mock_req))
+        assert result == "allowed"
+
+    def test_guest_token_blocked_from_admin_endpoint(self):
+        @require_role("admin")
+        async def endpoint(**kwargs):
+            return "allowed"
+
+        mock_req = make_mock_request("token_guest")
+        with pytest.raises(HTTPException) as exc_info:
+            run(endpoint(request=mock_req))
+        assert exc_info.value.status_code == 403
+
+    def test_guest_token_blocked_from_user_endpoint(self):
+        @require_role("user")
+        async def endpoint(**kwargs):
+            return "allowed"
+
+        mock_req = make_mock_request("token_guest")
+        with pytest.raises(HTTPException) as exc_info:
+            run(endpoint(request=mock_req))
+        assert exc_info.value.status_code == 403
+
+    def test_missing_token_raises_401(self):
+        @require_role("admin")
+        async def endpoint(**kwargs):
+            return "allowed"
+
+        mock_req = make_mock_request("token_invalid_xyz")
+        with pytest.raises(HTTPException) as exc_info:
+            run(endpoint(request=mock_req))
+        assert exc_info.value.status_code == 401
+
+    def test_no_request_raises_401(self):
+        @require_role("admin")
+        async def endpoint(**kwargs):
+            return "allowed"
+
+        with pytest.raises(HTTPException) as exc_info:
+            run(endpoint())
+        assert exc_info.value.status_code == 401
+
+    def test_composable_with_log_call(self):
+        @log_call
+        @require_role("admin")
+        async def endpoint(**kwargs):
+            return "ok"
+
+        mock_req = make_mock_request("token_admin")
+        result = run(endpoint(request=mock_req))
+        assert result == "ok"
+
+    def test_composable_order_independent(self):
+        @require_role("admin")
+        @log_call
+        async def endpoint(**kwargs):
+            return "ok"
+
+        mock_req = make_mock_request("token_admin")
+        result = run(endpoint(request=mock_req))
+        assert result == "ok"
