@@ -71,7 +71,7 @@ class TestDataIsolationBetweenUsers:
         repo1.add_device("light-1", {"name": "Lampe user1"})
         assert repo2.get_device("light-1") is None
 
-    def test_device_in_user1_not_visible_in_user2(self):
+    def test_device_isolation_between_two_users(self):
         repo1 = UserDeviceRepository("user_1")
         repo2 = UserDeviceRepository("user_2")
         repo1.add_device("d1", {"name": "D1"})
