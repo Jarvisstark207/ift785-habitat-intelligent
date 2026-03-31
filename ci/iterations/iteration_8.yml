@@ -1,68 +1,104 @@
 iteration: 8
-name: "Patterns Communication Temps Reel"
-description: "MQTT Pub-Sub, Event-Driven Architecture, WebSocket, Dashboard temps reel"
+name: "Méta-programmation — Le code qui se comprend lui-même"
+description: "Refactoring par méta-programmation : décorateurs transversaux (@log_call, @validate_input, @require_role), descripteurs de validation, DI Container amélioré par introspection, registre de devices par métaclasse. Le module d'authentification de base est fourni."
 
 functionality:
   weight: 40
   checks:
-    - name: "Application demarre"
-      points: 6
+    - name: "Application démarre"
+      points: 5
       type: "import_test"
       target: "app"
-    
-    - name: "MQTT Broker connecte"
-      points: 10
-      type: "mqtt_check"
-      broker: "localhost:1883"
-    
-    - name: "Dashboard temps reel"
+
+    - name: "Décorateurs transversaux actifs"
       points: 12
-      type: "endpoint_check"
-      endpoints:
-        - "/ws/dashboard"
-        - "/api/realtime/status"
-    
-    - name: "Notifications push"
-      points: 12
-      type: "endpoint_check"
-      endpoints:
-        - "/api/notifications/subscribe"
-        - "/api/notifications/history"
+      type: "pattern_detection"
+      patterns:
+        - "@log_call"
+        - "@validate_input"
+        - "@require_role"
+      description: "Les trois décorateurs doivent être appliqués sur les endpoints - logique transversale hors du code métier"
+
+    - name: "Descripteurs de validation sur les modèles"
+      points: 8
+      type: "pattern_detection"
+      patterns:
+        - "TypedField"
+        - "RangedField"
+        - "__set__"
+        - "__get__"
+      description: "Attributs Device/SensorReading validés via descripteurs Python (__set__, __get__)"
+
+    - name: "DI Container avec introspection"
+      points: 8
+      type: "pattern_detection"
+      patterns:
+        - "inspect.signature"
+        - "get_type_hints"
+      description: "Le DI Container résout les dépendances automatiquement via inspect.signature ou get_type_hints"
+
+    - name: "Registre de devices par métaclasse"
+      points: 7
+      type: "pattern_detection"
+      patterns:
+        - "DeviceMeta"
+        - "device_registry"
+      description: "Métaclasse qui enregistre automatiquement chaque sous-classe Device dans un registre central"
 
 tests:
   weight: 30
-  min_coverage: 82
+  min_coverage: 83
   min_tests: 60
   test_structure:
     unit:
-      min_tests: 32
-      weight: 50
+      min_tests: 35
+      weight: 55
       required_files:
-        - "tests/unit/test_mqtt_client.py"
-        - "tests/unit/test_event_bus.py"
-        - "tests/unit/test_websocket.py"
-    
+        - "tests/unit/test_decorators.py"
+        - "tests/unit/test_descriptors.py"
+        - "tests/unit/test_di_introspection.py"
+        - "tests/unit/test_device_metaclass.py"
+
     integration:
-      min_tests: 20
-      weight: 35
+      min_tests: 18
+      weight: 30
       required_files:
-        - "tests/integration/test_mqtt_broker.py"
-        - "tests/integration/test_realtime_updates.py"
-    
+        - "tests/integration/test_endpoints_decorated.py"
+        - "tests/integration/test_device_registry.py"
+
     api:
-      min_tests: 8
+      min_tests: 7
       weight: 15
       required_files:
-        - "tests/api/test_websocket_endpoints.py"
+        - "tests/api/test_role_decorator.py"
 
 quality:
   weight: 20
   max_flake8_errors: 4
-  max_complexity: 9
+  max_complexity: 8
   code_duplication: false
+  description: "Aucun bloc log/validation copié-collé dans les endpoints — la logique transversale doit vivre dans les décorateurs"
 
 git:
   weight: 10
-  min_commits_per_person: 14
+  min_commits_per_person: 13
   min_contribution_ratio: 35
   conventional_commits_ratio: 80
+
+bonus:
+  max_points: 10
+  cap_total: 100
+  description: "Interface graphique optionnelle — compense les pertes sur les critères principaux"
+  checks:
+    - name: "Page DeviceRegistry — visualisation des types enregistrés"
+      points: 5
+      type: "frontend_check"
+      description: "Tableau listant les types de devices connus du registre (nom, champs, validations actives)"
+      urls:
+        - "/devices/registry"
+    - name: "Logs transversaux visibles dans l'UI"
+      points: 5
+      type: "frontend_check"
+      description: "Vue journal des appels décorés (@log_call) avec timestamp, endpoint, durée"
+      urls:
+        - "/admin/logs"
