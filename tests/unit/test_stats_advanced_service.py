@@ -43,35 +43,34 @@ class TestStatsAdvancedService:
 
         assert len(result["hourly_stats"]) == 2  # 2 heures différentes
 
-    def test_calculate_hourly_stats_computes_avg_min_max(self, stats_advanced_service, mock_repo):
-        """Test calcul avg, min, max pour chaque heure"""
-
+    def test_calculate_hourly_stats_has_required_keys(self, stats_advanced_service, mock_repo):
+        """Test que les clés avg, min, max, count sont présentes"""
         mock_data = [
             {"timestamp": "2026-02-03T10:00:00", "value": 20.0},
             {"timestamp": "2026-02-03T10:15:00", "value": 22.0},
             {"timestamp": "2026-02-03T10:30:00", "value": 24.0},
         ]
-
         mock_repo.find_with_filters.return_value = mock_data
-
         result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
-
         hourly = result["hourly_stats"][0]
+        for key in ("avg", "min", "max", "count"):
+            assert key in hourly
 
-        assert "avg" in hourly
-
-        assert "min" in hourly
-
-        assert "max" in hourly
-
-        assert "count" in hourly
-
+    def test_calculate_hourly_stats_computes_correct_values(
+        self, stats_advanced_service, mock_repo
+    ):
+        """Test que avg/min/max/count ont les bonnes valeurs"""
+        mock_data = [
+            {"timestamp": "2026-02-03T10:00:00", "value": 20.0},
+            {"timestamp": "2026-02-03T10:15:00", "value": 22.0},
+            {"timestamp": "2026-02-03T10:30:00", "value": 24.0},
+        ]
+        mock_repo.find_with_filters.return_value = mock_data
+        result = stats_advanced_service.calculate_hourly_stats(date="2026-02-03")
+        hourly = result["hourly_stats"][0]
         assert hourly["avg"] == 22.0
-
         assert hourly["min"] == 20.0
-
         assert hourly["max"] == 24.0
-
         assert hourly["count"] == 3
 
     def test_calculate_hourly_stats_with_location_filter(self, stats_advanced_service, mock_repo):
