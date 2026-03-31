@@ -302,19 +302,17 @@ class TestDeviceAPI:
         data = response.json()
         assert data["status"] == "error"
 
-    def test_list_devices_paginated(self):
-        """Teste la pagination des devices"""
-        # Créer 15 devices
-        for i in range(15):
-            payload = {
-                "device_id": f"light_{i}",
-                "name": f"Light {i}",
-                "room_name": "Room",
-                "device_type": "light",
-            }
-            client.post("/api/devices/build", json=payload)
+    def _create_lights(self, n: int):
+        """Helper: crée n devices de type light."""
+        for i in range(n):
+            client.post("/api/devices/build", json={
+                "device_id": f"light_{i}", "name": f"Light {i}",
+                "room_name": "Room", "device_type": "light",
+            })
 
-        # Première page
+    def test_list_devices_paginated_first_page(self):
+        """Teste la première page de pagination"""
+        self._create_lights(15)
         response = client.get("/api/devices/paginated/list?skip=0&limit=10")
         assert response.status_code == 200
         data = response.json()
@@ -323,7 +321,9 @@ class TestDeviceAPI:
         assert data["skip"] == 0
         assert data["limit"] == 10
 
-        # Deuxième page
+    def test_list_devices_paginated_second_page(self):
+        """Teste la deuxième page de pagination"""
+        self._create_lights(15)
         response = client.get("/api/devices/paginated/list?skip=10&limit=10")
         assert response.status_code == 200
         data = response.json()
