@@ -78,3 +78,43 @@ class TemperatureSensor(DeviceBase):
         d["temperature"] = self.temperature
         return d
 
+
+class MotionDetector(DeviceBase):
+    """Détecteur de mouvement — s'enregistre automatiquement dans DeviceMeta.registry."""
+    sensitivity = RangedField(min_val=1, max_val=10)
+
+    def __init__(
+        self,
+        name: str = "MotionDetector",
+        sensitivity: int = 5,
+        status: str = "active",
+    ):
+        super().__init__(name=name, status=status)
+        self.sensitivity = sensitivity
+
+    def to_dict(self) -> dict:
+        d = super().to_dict()
+        d["sensitivity"] = self.sensitivity
+        return d
+
+
+class HumiditySensor(DeviceBase):
+    """Capteur d'humidité — s'enregistre automatiquement dans DeviceMeta.registry."""
+    humidity = RangedField(min_val=0, max_val=100)
+
+    def __init__(
+        self,
+        name: str = "HumiditySensor",
+        humidity: float = 50.0,
+        status: str = "active",
+    ):
+        super().__init__(name=name, status=status)
+        self.humidity = humidity
+
+    def to_dict(self) -> dict:
+        d = super().to_dict()
+        d["humidity"] = self.humidity
+        return d
+
+
+
