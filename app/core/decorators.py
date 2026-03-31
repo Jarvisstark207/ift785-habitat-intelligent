@@ -114,3 +114,61 @@ def _do_validate(func, schema, args, kwargs):
         if value is not None:
             _validate_value(value, schema)
             break
+
+
+def require_role(role: str):
+    """
+    Vérifie que l'utilisateur courant possède le rôle requis (depuis provided_auth).
+    Lève HTTPException(401) si le token est absent/invalide.
+    Lève HTTPException(403) si le rôle est insuffisant.
+    Injecte automatiquement 'request: Request' dans la signature pour que FastAPI le fournisse.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Extraire la request depuis kwargs (injectée par FastAPI)
+            request = kwargs.pop('request', None)
+            if request is None:
+                for arg in args:
+                    if isinstance(arg, Request):
+                        request = arg
+                        break
+
+            if request is None:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Pas de contexte de requête disponible"
+                )
+
+            user = get_current_user_from_request(request)
+            if user is None:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token d'authentification manquant ou invalide"
+                )
+
+            require_minimum_role(user, role)
+            return await func(*args, **kwargs)
+
+        # Injecter 'request: Request' dans la signature pour que FastAPI l'injecte.
+        # request doit être inséré avant **kwargs (VAR_KEYWORD) s'il existe.
+        sig = inspect.signature(func)
+        params = list(sig.parameters.values())
+        if not any(p.name == 'request' for p in params):
+            request_param = inspect.Parameter(
+                'request',
+                inspect.Parameter.KEYWORD_ONLY,
+                annotation=Request,
+                default=None,
+            )
+            # Insérer avant tout paramètre VAR_KEYWORD (**kwargs)
+            var_kw_idx = next(
+                (i for i, p in enumerate(params)
+                 if p.kind == inspect.Parameter.VAR_KEYWORD),
+                len(params),
+            )
+            params.insert(var_kw_idx, request_param)
+            wrapper.__signature__ = sig.replace(parameters=params)
+
+        return wrapper
+    return decorator
