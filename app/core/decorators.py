@@ -67,3 +67,50 @@ def log_call(func):
                              error=f"{type(exc).__name__}: {exc}")
             raise
     return sync_wrapper
+
+
+def validate_input(schema):
+    """
+    Valide les données d'entrée contre un schéma Pydantic avant l'exécution.
+    Lève HTTPException(422) si les données sont invalides.
+    Supporte les fonctions synchrones et asynchrones.
+    """
+    def decorator(func):
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                _do_validate(func, schema, args, kwargs)
+                return await func(*args, **kwargs)
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            _do_validate(func, schema, args, kwargs)
+            return func(*args, **kwargs)
+        return sync_wrapper
+    return decorator
+
+
+def _validate_value(value, schema):
+    """Valide une valeur contre un schéma Pydantic. Lève HTTPException(422) si invalide."""
+    try:
+        if isinstance(value, dict):
+            schema(**value)
+        elif not isinstance(value, schema):
+            schema.model_validate(value)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Validation error: {exc}")
+
+
+def _do_validate(func, schema, args, kwargs):
+    """Extrait le premier argument non-spécial et le valide contre le schéma."""
+    sig = inspect.signature(func)
+    for i, (param_name, _param) in enumerate(sig.parameters.items()):
+        if param_name in ('self', 'request'):
+            continue
+        value = kwargs.get(param_name)
+        if value is None and i < len(args):
+            value = args[i]
+        if value is not None:
+            _validate_value(value, schema)
+            break
