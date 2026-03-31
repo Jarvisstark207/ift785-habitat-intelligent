@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Registry - Habitat Intelligent</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .registry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .registry-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .registry-table th { background: #667eea; color: white; padding: 14px 16px; text-align: left; font-weight: 600; }
+        .registry-table td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        .registry-table tr:last-child td { border-bottom: none; }
+        .registry-table tr:hover td { background: #f9f9ff; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .badge-meta { background: #e8eaf6; color: #3949ab; }
+        .badge-desc { background: #e0f2f1; color: #00695c; }
+        .field-tag { display: inline-block; background: #f3e5f5; color: #7b1fa2; border-radius: 4px; padding: 2px 8px; font-size: 12px; margin: 2px; }
+        .validation-tag { display: inline-block; background: #fff3e0; color: #e65100; border-radius: 4px; padding: 2px 8px; font-size: 12px; margin: 2px; }
+        .info-box { background: #e8eaf6; border-left: 4px solid #667eea; padding: 16px 20px; border-radius: 6px; margin-bottom: 24px; }
+        .info-box p { margin: 0; color: #444; font-size: 14px; }
+        .meta-icon { font-size: 18px; margin-right: 6px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .nav-link { color: #667eea; text-decoration: none; font-size: 14px; }
+        .nav-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Habitat Intelligent</h1>
+        <p class="subtitle">Registre des Types de Devices</p>
+    </header>
+
+    <div class="info-box">
+        <p>
+            <span class="meta-icon">🔬</span>
+            <strong>Méta-programmation — Itération 8 :</strong>
+            Chaque type de device ci-dessous s'est enregistré <em>automatiquement</em>
+            via <code>DeviceMeta</code> à la création de sa classe.
+            Aucune ligne de code d'enregistrement manuel n'est nécessaire.
+        </p>
+    </div>
+
+    <div class="registry-header">
+        <h2 style="margin:0">Types enregistrés (<span id="type-count">—</span>)</h2>
+        <a href="/devices" class="nav-link">← Retour aux devices</a>
+    </div>
+
+    <div id="registry-container">
+        <div class="empty-state"><h3>Chargement...</h3></div>
+    </div>
+</div>
+
+<script>
+async function loadRegistry() {
+    const res = await fetch('/api/devices/types');
+    const data = await res.json();
+
+    document.getElementById('type-count').textContent = data.count;
+
+    const container = document.getElementById('registry-container');
+
+    if (data.count === 0) {
+        container.innerHTML = '<div class="empty-state"><h3>Aucun type enregistré</h3></div>';
+        return;
+    }
+
+    // Charger les détails de chaque type via introspection JS
+    const typeDetails = await Promise.all(
+        data.types.map(typeName => fetchTypeDetails(typeName))
+    );
+
+    const rows = typeDetails.map(t => `
+        <tr>
+            <td>
+                <strong>${t.name}</strong>
+                <br><small style="color:#888">${t.module}</small>
+            </td>
+            <td>${t.fields.map(f => `<span class="field-tag">${f}</span>`).join('') || '<em style="color:#aaa">—</em>'}</td>
+            <td>${t.validations.map(v => `<span class="validation-tag">${v}</span>`).join('') || '<em style="color:#aaa">—</em>'}</td>
+            <td>
+                <span class="badge badge-meta">DeviceMeta</span>
+                ${t.has_to_dict ? '<span class="badge badge-desc" style="margin-left:4px">to_dict</span>' : ''}
+            </td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <table class="registry-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Champs</th>
+                    <th>Validations actives</th>
+                    <th>Métadonnées</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+async function fetchTypeDetails(typeName) {
+    // Introspection via l'API
+    try {
+        const res = await fetch(`/api/devices/types/${typeName}/info`);
+        if (res.ok) return await res.json();
+    } catch (_) {}
+    return { name: typeName, module: '', fields: [], validations: [], has_to_dict: false };
+}
+
+loadRegistry();
+
+// Auto-refresh toutes les 10s
+setInterval(loadRegistry, 10000);
+</script>
+</body>
+</html>
