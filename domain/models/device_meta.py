@@ -117,4 +117,15 @@ class HumiditySensor(DeviceBase):
         return d
 
 
-
+def instantiate_from_registry(type_name: str, **kwargs) -> DeviceBase:
+    """
+    Désérialisation JSON -> instanciation du bon type via le registre.
+    Lève ValueError si le type_name est inconnu.
+    """
+    device_class = DeviceMeta.registry.get(type_name)
+    if device_class is None:
+        raise ValueError(
+            f"Type de device inconnu : '{type_name}'. "
+            f"Types disponibles : {list(DeviceMeta.registry.keys())}"
+        )
+    return device_class(**kwargs)
