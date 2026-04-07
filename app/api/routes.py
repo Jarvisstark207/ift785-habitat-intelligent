@@ -236,3 +236,15 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
         """Vide le journal des logs (utile pour les tests / reset UI)"""
         log_store.clear()
         return {"status": "ok", "message": "Journal vidé"}
+
+    # ========================================================================
+    # ITERATION 9 - AOP (Aspects transversaux + EventBus)
+    # ========================================================================
+
+    @app.get("/api/sensors/latest")
+    @aspect_log(level="INFO")
+    @aspect_cache(ttl=30.0, key_fn=lambda: "sensors:latest")
+    def get_sensors_latest():
+        """Dernières lectures capteurs — résultat mis en cache 30s (@aspect_cache)"""
+        readings = _repo.find_recent(limit=20)
+        return {"count": len(readings), "readings": readings}
