@@ -198,3 +198,26 @@ class TestOnEventDecorator:
         bus.publish("ev.two", {})
         assert "one" in log and "two" in log
 
+
+# ---------------------------------------------------------------------------
+# Introspection
+# ---------------------------------------------------------------------------
+
+class TestEventBusIntrospection:
+    def test_all_subscribers_returns_dict(self):
+        bus = EventBus.instance()
+
+        def handler(event, payload):
+            pass
+
+        bus.subscribe("my.event", handler)
+        result = bus.all_subscribers()
+        assert isinstance(result, dict)
+        assert "my.event" in result
+        assert "handler" in result["my.event"]
+
+    def test_subscribers_returns_copy(self):
+        bus = EventBus.instance()
+        subs = bus.subscribers("nonexistent.event")
+        assert isinstance(subs, list)
+        assert subs == []
