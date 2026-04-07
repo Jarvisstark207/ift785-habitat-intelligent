@@ -248,3 +248,20 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
         """Dernières lectures capteurs — résultat mis en cache 30s (@aspect_cache)"""
         readings = _repo.find_recent(limit=20)
         return {"count": len(readings), "readings": readings}
+
+    @app.get("/api/devices/summary")
+    @aspect_log(level="INFO")
+    @aspect_cache(ttl=60.0, key_fn=lambda: "devices:summary")
+    def get_devices_summary():
+        """Résumé des devices — résultat mis en cache 60s (@aspect_cache)"""
+        all_devices = _device_service.get_all_devices()
+        by_type: dict = {}
+        by_room: dict = {}
+        for d in all_devices:
+            by_type[d.device_type] = by_type.get(d.device_type, 0) + 1
+            by_room[d.room_name] = by_room.get(d.room_name, 0) + 1
+        return {
+            "total": len(all_devices),
+            "by_type": by_type,
+            "by_room": by_room,
+        }
