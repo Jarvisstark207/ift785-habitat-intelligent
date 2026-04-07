@@ -164,3 +164,53 @@ def aspect_cache(ttl: float = 60.0, key_fn=None):
             return result
         return sync_wrapper
     return decorator
+
+
+# ---------------------------------------------------------------------------
+# @aspect_retry
+# ---------------------------------------------------------------------------
+
+def aspect_retry(max_attempts: int = 3, backoff: float = 1.0, exceptions=(Exception,)):
+    """
+    Relance la fonction en cas d'exception avec backoff exponentiel.
+    Délai entre tentatives : backoff * 2^attempt secondes.
+    Supporte fonctions sync et async.
+    """
+    def decorator(func):
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                last_exc = None
+                for attempt in range(max_attempts):
+                    try:
+                        return await func(*args, **kwargs)
+                    except exceptions as exc:
+                        last_exc = exc
+                        if attempt < max_attempts - 1:
+                            delay = backoff * (2 ** attempt)
+                            logger.warning(
+                                "[aspect_retry] %s attempt %d/%d failed: %s. Retry in %.2fs",
+                                func.__name__, attempt + 1, max_attempts, exc, delay
+                            )
+                            await asyncio.sleep(delay)
+                raise last_exc
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            last_exc = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as exc:
+                    last_exc = exc
+                    if attempt < max_attempts - 1:
+                        delay = backoff * (2 ** attempt)
+                        logger.warning(
+                            "[aspect_retry] %s attempt %d/%d failed: %s. Retry in %.2fs",
+                            func.__name__, attempt + 1, max_attempts, exc, delay
+                        )
+                        time.sleep(delay)
+            raise last_exc
+        return sync_wrapper
+    return decorator
