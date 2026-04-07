@@ -78,3 +78,49 @@ def _cache_get(key):
 def _cache_set(key, value, ttl):
     with _cache_lock:
         _cache_store[key] = {"value": value, "expires_at": time.time() + ttl}
+
+
+# ---------------------------------------------------------------------------
+# @aspect_log
+# ---------------------------------------------------------------------------
+
+def aspect_log(level: str = "INFO"):
+    """
+    Journalise l'appel, les arguments, la durée et le résultat.
+    Niveau de log configurable : DEBUG, INFO, WARNING, ERROR.
+    Supporte fonctions sync et async.
+    """
+    log_fn = getattr(logger, level.lower(), logger.info)
+
+    def decorator(func):
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                log_fn("[aspect_log] %s called args=%s kwargs=%s", func.__name__, args, kwargs)
+                start = time.time()
+                try:
+                    result = await func(*args, **kwargs)
+                    duration = time.time() - start
+                    log_fn("[aspect_log] %s → OK (%.3fs)", func.__name__, duration)
+                    return result
+                except Exception as exc:
+                    duration = time.time() - start
+                    log_fn("[aspect_log] %s → ERROR %s (%.3fs)", func.__name__, exc, duration)
+                    raise
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            log_fn("[aspect_log] %s called args=%s kwargs=%s", func.__name__, args, kwargs)
+            start = time.time()
+            try:
+                result = func(*args, **kwargs)
+                duration = time.time() - start
+                log_fn("[aspect_log] %s → OK (%.3fs)", func.__name__, duration)
+                return result
+            except Exception as exc:
+                duration = time.time() - start
+                log_fn("[aspect_log] %s → ERROR %s (%.3fs)", func.__name__, exc, duration)
+                raise
+        return sync_wrapper
+    return decorator
