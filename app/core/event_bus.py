@@ -86,6 +86,25 @@ class EventBus:
         for handler in handlers:
             self._call_handler(handler, event_name, payload)
 
+    def _call_handler(self, handler: Callable, event_name: str, payload: Any) -> None:
+        """Appelle un handler, sync ou async, en avalant les exceptions."""
+        try:
+            if inspect.iscoroutinefunction(handler):
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        loop.create_task(handler(event_name, payload))
+                    else:
+                        loop.run_until_complete(handler(event_name, payload))
+                except RuntimeError:
+                    asyncio.run(handler(event_name, payload))
+            else:
+                handler(event_name, payload)
+        except Exception as exc:
+            logger.error(
+                "[EventBus] handler %s raised %s: %s",
+                handler.__name__, type(exc).__name__, exc
+            )
 
     # ------------------------------------------------------------------
     # Introspection
