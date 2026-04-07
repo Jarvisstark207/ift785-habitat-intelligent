@@ -124,3 +124,43 @@ def aspect_log(level: str = "INFO"):
                 raise
         return sync_wrapper
     return decorator
+
+
+# ---------------------------------------------------------------------------
+# @aspect_cache
+# ---------------------------------------------------------------------------
+
+def aspect_cache(ttl: float = 60.0, key_fn=None):
+    """
+    Met en cache le résultat de la fonction pendant *ttl* secondes.
+    key_fn(*args, **kwargs) → str permet de personnaliser la clé de cache.
+    Supporte fonctions sync et async.
+    """
+    def decorator(func):
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                key = _make_cache_key(func, args, kwargs, key_fn)
+                hit, value = _cache_get(key)
+                if hit:
+                    logger.debug("[aspect_cache] HIT %s", key)
+                    return value
+                logger.debug("[aspect_cache] MISS %s", key)
+                result = await func(*args, **kwargs)
+                _cache_set(key, result, ttl)
+                return result
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            key = _make_cache_key(func, args, kwargs, key_fn)
+            hit, value = _cache_get(key)
+            if hit:
+                logger.debug("[aspect_cache] HIT %s", key)
+                return value
+            logger.debug("[aspect_cache] MISS %s", key)
+            result = func(*args, **kwargs)
+            _cache_set(key, result, ttl)
+            return result
+        return sync_wrapper
+    return decorator
