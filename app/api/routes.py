@@ -265,3 +265,16 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
             "by_type": by_type,
             "by_room": by_room,
         }
+
+    @app.post("/api/events/publish")
+    @aspect_log(level="INFO")
+    @aspect_audit(level="INFO", action="event.published")
+    def publish_event(body: dict):
+        """Publie un événement sur le bus déclaratif (iter 9)"""
+        event_name = body.get("event", "")
+        payload = body.get("payload", {})
+        if not event_name:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail="event name required")
+        EventBus.instance().publish(event_name, payload)
+        return {"status": "ok", "event": event_name}
