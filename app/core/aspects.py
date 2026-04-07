@@ -214,3 +214,75 @@ def aspect_retry(max_attempts: int = 3, backoff: float = 1.0, exceptions=(Except
             raise last_exc
         return sync_wrapper
     return decorator
+
+
+# ---------------------------------------------------------------------------
+# @aspect_audit
+# ---------------------------------------------------------------------------
+
+def _write_audit_log(action: str, func_name: str, level: str, error: str = None):
+    """Écrit une entrée d'audit dans la base SQLite (table audit_logs)."""
+    try:
+        from infrastructure.db.sqlite_connection import SQLiteConnection
+        conn = SQLiteConnection.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                level TEXT NOT NULL,
+                action TEXT NOT NULL,
+                function TEXT NOT NULL,
+                success INTEGER NOT NULL,
+                error TEXT
+            )
+            """
+        )
+        import datetime
+        ts = datetime.datetime.utcnow().isoformat()
+        success = 1 if error is None else 0
+        cursor.execute(
+            "INSERT INTO audit_logs (timestamp, level, action, function, success, error) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (ts, level, action, func_name, success, error),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        logger.error("[aspect_audit] Failed to write audit log: %s", exc)
+
+
+def aspect_audit(level: str = "INFO", action: str = ""):
+    """
+    Enregistre chaque appel dans la table *audit_logs* de SQLite.
+    action : étiquette métier (ex. "device.created").
+    level  : niveau de sévérité stocké.
+    Supporte fonctions sync et async.
+    """
+    def decorator(func):
+        _action = action or func.__name__
+
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                try:
+                    result = await func(*args, **kwargs)
+                    _write_audit_log(_action, func.__name__, level)
+                    return result
+                except Exception as exc:
+                    _write_audit_log(_action, func.__name__, level, error=str(exc))
+                    raise
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+                _write_audit_log(_action, func.__name__, level)
+                return result
+            except Exception as exc:
+                _write_audit_log(_action, func.__name__, level, error=str(exc))
+                raise
+        return sync_wrapper
+    return decorator
