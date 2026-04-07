@@ -100,3 +100,86 @@ class TestAspectCacheBasic:
         time.sleep(0.1)
         compute()
         assert call_count[0] == 2
+
+
+# ---------------------------------------------------------------------------
+# Clé personnalisée (key_fn)
+# ---------------------------------------------------------------------------
+
+class TestAspectCacheKeyFn:
+    def test_key_fn_used(self):
+        call_count = [0]
+
+        @aspect_cache(ttl=60, key_fn=lambda x: f"custom:{x}")
+        def compute(x):
+            call_count[0] += 1
+            return x
+
+        compute(5)
+        compute(5)
+        assert call_count[0] == 1
+
+    def test_different_key_fn_results_different_entries(self):
+        call_count = [0]
+
+        @aspect_cache(ttl=60, key_fn=lambda x: f"k:{x}")
+        def compute(x):
+            call_count[0] += 1
+            return x
+
+        compute(1)
+        compute(2)
+        assert call_count[0] == 2
+
+
+# ---------------------------------------------------------------------------
+# Invalidation
+# ---------------------------------------------------------------------------
+
+class TestAspectCacheInvalidation:
+    def test_invalidate_all(self):
+        @aspect_cache(ttl=60)
+        def f():
+            return 1
+
+        f()
+        count = invalidate_cache()
+        assert count >= 1
+        assert len(_cache_store) == 0
+
+    def test_invalidate_by_prefix(self):
+        @aspect_cache(ttl=60, key_fn=lambda: "prefix:key1")
+        def f1():
+            return 1
+
+        @aspect_cache(ttl=60, key_fn=lambda: "other:key2")
+        def f2():
+            return 2
+
+        f1()
+        f2()
+        invalidate_cache(prefix="prefix:")
+        store = get_cache_store()
+        assert all(not k.startswith("prefix:") for k in store)
+
+    def test_get_cache_store_returns_ttl(self):
+        @aspect_cache(ttl=60, key_fn=lambda: "test:ttl")
+        def f():
+            return "x"
+
+        f()
+        store = get_cache_store()
+        key = "test:ttl"
+        assert key in store
+        assert store[key]["ttl_remaining"] > 0
+
+    def test_get_cache_store_returns_hits(self):
+        @aspect_cache(ttl=60, key_fn=lambda: "test:hits")
+        def f():
+            return "x"
+
+        f()
+        f()
+        f()
+        store = get_cache_store()
+        assert store["test:hits"]["hits"] == 2
