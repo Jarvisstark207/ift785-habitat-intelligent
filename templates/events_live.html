@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EventBus — Flux Live</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 20px; }
+    h1 { color: #58a6ff; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+    .badge-device { background: #1f6feb; }
+    .badge-sensor { background: #388bfd22; border: 1px solid #388bfd; }
+    .badge-user { background: #3fb95022; border: 1px solid #3fb950; color: #3fb950; }
+    .badge-other { background: #6e768155; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 8px; border-bottom: 1px solid #30363d; color: #8b949e; font-weight: normal; }
+    td { padding: 8px; border-bottom: 1px solid #21262d; }
+    tr:hover { background: #161b22; }
+    .ts { color: #8b949e; font-size: 12px; }
+    .payload { color: #e3b341; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #status { color: #3fb950; margin-bottom: 10px; }
+    #status.error { color: #f85149; }
+    .controls { margin-bottom: 16px; }
+    button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #30363d; }
+  </style>
+</head>
+<body>
+  <h1>EventBus — Flux Live</h1>
+  <div id="status">En attente d'événements…</div>
+  <div class="controls">
+    <button onclick="clearDisplay()">Vider l'affichage</button>
+    <button onclick="togglePause()">Pause / Reprendre</button>
+    <span id="count" style="margin-left:12px; color:#8b949e"></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Horodatage</th>
+        <th>Événement</th>
+        <th>Payload</th>
+      </tr>
+    </thead>
+    <tbody id="events-body"></tbody>
+  </table>
+
+  <script>
+    let paused = false;
+    let lastSeen = 0;
+    let total = 0;
+
+    function badgeClass(event) {
+      if (event.startsWith('device')) return 'badge-device';
+      if (event.startsWith('sensor')) return 'badge-sensor';
+      if (event.startsWith('user'))   return 'badge-user';
+      return 'badge-other';
+    }
+
+    async function fetchEvents() {
+      if (paused) return;
+      try {
+        const resp = await fetch('/api/events/history');
+        if (!resp.ok) throw new Error(resp.statusText);
+        const data = await resp.json();
+        document.getElementById('status').textContent = 'Connecté — rafraîchi toutes les 2s';
+        document.getElementById('status').className = '';
+        const tbody = document.getElementById('events-body');
+        const events = data.events || [];
+        const newEvents = events.slice(lastSeen);
+        lastSeen = events.length;
+        newEvents.reverse().forEach(ev => {
+          total++;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="ts">${ev.timestamp || ''}</td>
+            <td><span class="badge ${badgeClass(ev.event)}">${ev.event}</span></td>
+            <td class="payload">${JSON.stringify(ev.payload || {})}</td>`;
+          tbody.insertBefore(tr, tbody.firstChild);
+        });
+        document.getElementById('count').textContent = `${total} événement(s) affichés`;
+      } catch(e) {
+        document.getElementById('status').textContent = 'Erreur: ' + e.message;
+        document.getElementById('status').className = 'error';
+      }
+    }
+
+    function clearDisplay() {
+      document.getElementById('events-body').innerHTML = '';
+      total = 0; lastSeen = 0;
+    }
+
+    function togglePause() {
+      paused = !paused;
+      document.getElementById('status').textContent = paused ? 'En pause' : 'Reprise…';
+    }
+
+    fetchEvents();
+    setInterval(fetchEvents, 2000);
+  </script>
+</body>
+</html>
