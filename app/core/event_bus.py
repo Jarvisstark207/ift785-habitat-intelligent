@@ -108,4 +108,26 @@ class EventBus:
         self._history.clear()
 
 
+# ---------------------------------------------------------------------------
+# Décorateur @on_event
+# ---------------------------------------------------------------------------
 
+def on_event(event_name: str):
+    """
+    Décorateur déclaratif pour abonner une fonction à un événement du bus.
+
+    Usage ::
+
+        @on_event("device.updated")
+        def handle_device_update(event, payload):
+            print(f"Device updated: {payload}")
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        wrapper._on_event = event_name
+        EventBus.instance().subscribe(event_name, wrapper)
+        return wrapper
+    return decorator
