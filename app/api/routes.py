@@ -278,3 +278,15 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
             raise HTTPException(status_code=422, detail="event name required")
         EventBus.instance().publish(event_name, payload)
         return {"status": "ok", "event": event_name}
+
+    @app.get("/api/events/history")
+    @aspect_log(level="DEBUG")
+    def get_event_history():
+        """Retourne l'historique des événements du bus (iter 9)"""
+        history = EventBus.instance().get_history()
+        return {"count": len(history), "events": history}
+
+    @app.get("/api/events/subscribers")
+    def get_event_subscribers():
+        """Liste les abonnés de chaque événement (iter 9)"""
+        return EventBus.instance().all_subscribers()
