@@ -290,3 +290,16 @@ def setup_routes(app: FastAPI, dashboard_service: DashboardService) -> None:
     def get_event_subscribers():
         """Liste les abonnés de chaque événement (iter 9)"""
         return EventBus.instance().all_subscribers()
+
+    @app.post("/api/cache/invalidate")
+    def invalidate_cache_endpoint(body: dict = None):
+        """Invalide tout ou partie du cache (iter 9)"""
+        prefix = (body or {}).get("prefix", "")
+        count = invalidate_cache(prefix)
+        return {"status": "ok", "invalidated": count}
+
+    @app.get("/api/cache/stats")
+    def get_cache_stats():
+        """Retourne les statistiques du cache (iter 9)"""
+        store = get_cache_store()
+        return {"count": len(store), "entries": store}
