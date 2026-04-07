@@ -4,7 +4,7 @@ Tests unitaires - @aspect_audit (Itération 9 : AOP)
 
 import asyncio
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.core.aspects import aspect_audit
 

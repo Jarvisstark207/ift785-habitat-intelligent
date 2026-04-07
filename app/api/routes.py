@@ -23,9 +23,9 @@ from app.core import log_store
 from domain.models.device_meta import DeviceMeta
 
 # Iter 9 - AOP
-from app.core.aspects import aspect_log, aspect_cache, aspect_retry, aspect_audit
+from app.core.aspects import aspect_log, aspect_cache, aspect_audit
 from app.core.aspects import get_cache_store, invalidate_cache
-from app.core.event_bus import EventBus, on_event
+from app.core.event_bus import EventBus
 
 
 class DeviceCreateSchema(BaseModel):
