@@ -1,78 +1,86 @@
 iteration: 9
-name: "Patterns Resilience Distribuee + Metaclasses"
-description: "Circuit Breaker, Retry, Timeout, Bulkhead, Health Check + Metaclasses Python pour factories dynamiques"
+name: "Programmation par Aspect (AOP) — Séparation des préoccupations"
+description: "AOP en Python via décorateurs composables : aspects de logging, cache, retry, audit sécurité, et Event Bus par abonnement déclaratif"
 
 functionality:
   weight: 40
   checks:
-    - name: "Application demarre"
-      points: 6
+    - name: "Application démarre"
+      points: 5
       type: "import_test"
       target: "app"
 
-    - name: "Multi-capteurs distribues"
-      points: 8
-      type: "endpoint_check"
-      endpoints:
-        - "/api/sensors/distributed"
-        - "/api/sensors/{id}/health"
-
-    - name: "Resilience patterns"
+    - name: "Aspects transversaux composables"
       points: 10
       type: "pattern_detection"
       patterns:
-        - "CircuitBreaker"
-        - "Retry"
-        - "HealthCheck"
+        - "@aspect_log"
+        - "@aspect_cache"
+        - "@aspect_retry"
+        - "@aspect_audit"
+      description: "Quatre aspects indépendants, empilables sur n'importe quelle fonction métier"
 
-    - name: "Tolerance pannes"
+    - name: "Aspect cache fonctionnel"
       points: 8
       type: "endpoint_check"
       endpoints:
-        - "/api/health"
-        - "/api/readiness"
-        - "/api/status/services"
+        - "/api/sensors/latest"
+        - "/api/devices/summary"
+      description: "Endpoints annotés @aspect_cache(ttl=X) : second appel retourne résultat en cache"
 
-    - name: "Metaclasses Python"
-      points: 8
+    - name: "Event Bus déclaratif"
+      points: 10
       type: "pattern_detection"
       patterns:
-        - "Metaclass"
-        - "DeviceFactory"
-      description: "Metaclasse generant automatiquement les factories de devices selon configuration"
+        - "@on_event"
+        - "EventBus"
+        - "publish"
+        - "subscribe"
+      description: "Bus d'événements avec abonnement déclaratif (@on_event('device.updated')) et publication explicite"
+
+    - name: "Aspect retry sur API externe"
+      points: 7
+      type: "pattern_detection"
+      patterns:
+        - "@aspect_retry"
+        - "backoff"
+        - "max_attempts"
+      description: "Retry avec backoff exponentiel sur les appels à des services externes (simulation Philips Hue, météo)"
 
 tests:
   weight: 30
   min_coverage: 83
-  min_tests: 65
+  min_tests: 63
   test_structure:
     unit:
-      min_tests: 35
-      weight: 50
+      min_tests: 36
+      weight: 52
       required_files:
-        - "tests/unit/test_circuit_breaker.py"
-        - "tests/unit/test_retry.py"
-        - "tests/unit/test_health_check.py"
-        - "tests/unit/test_metaclasses.py"
+        - "tests/unit/test_aspect_log.py"
+        - "tests/unit/test_aspect_cache.py"
+        - "tests/unit/test_aspect_retry.py"
+        - "tests/unit/test_aspect_audit.py"
+        - "tests/unit/test_event_bus.py"
 
     integration:
-      min_tests: 22
-      weight: 35
+      min_tests: 20
+      weight: 33
       required_files:
-        - "tests/integration/test_distributed_sensors.py"
-        - "tests/integration/test_fault_tolerance.py"
+        - "tests/integration/test_event_bus_flow.py"
+        - "tests/integration/test_cache_invalidation.py"
 
     api:
-      min_tests: 8
+      min_tests: 7
       weight: 15
       required_files:
-        - "tests/api/test_health_endpoints.py"
+        - "tests/api/test_cached_endpoints.py"
 
 quality:
   weight: 20
   max_flake8_errors: 3
   max_complexity: 8
   code_duplication: false
+  description: "Les aspects doivent être réutilisables sans modification — aucun couplage avec le code métier"
 
 git:
   weight: 10
@@ -83,17 +91,17 @@ git:
 bonus:
   max_points: 10
   cap_total: 100
-  description: "Interface graphique optionnelle - compense les pertes sur les criteres principaux"
+  description: "Interface graphique optionnelle — compense les pertes sur les critères principaux"
   checks:
-    - name: "Page Integrations tierces avec statut sante"
+    - name: "Dashboard événements en temps réel"
       points: 5
       type: "frontend_check"
-      description: "Tableau de bord visuel des integrations (Philips Hue, Nest, Generic) avec indicateur circuit breaker (vert/orange/rouge)"
+      description: "Flux live des événements publiés sur l'EventBus (device.updated, sensor.alert…) affiché en temps réel"
       urls:
-        - "/integrations"
-    - name: "Interface configuration des alertes"
+        - "/events/live"
+    - name: "Visualisation du cache"
       points: 5
       type: "frontend_check"
-      description: "Formulaire de configuration des seuils d'alertes (fonctionnalite backend iter 2 rendue visible)"
+      description: "Interface indiquant les clés en cache, leur TTL restant et le taux de cache-hit par endpoint"
       urls:
-        - "/alerts/config"
+        - "/admin/cache"
