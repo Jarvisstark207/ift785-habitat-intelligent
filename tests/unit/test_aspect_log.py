@@ -74,3 +74,70 @@ class TestAspectLogBasic:
         with pytest.raises(RuntimeError, match="async fail"):
             run(async_boom())
 
+
+# ---------------------------------------------------------------------------
+# Niveaux de log
+# ---------------------------------------------------------------------------
+
+class TestAspectLogLevels:
+    def test_info_level_logs(self, caplog):
+        with caplog.at_level(logging.INFO, logger="app.core.aspects"):
+            @aspect_log(level="INFO")
+            def func():
+                return "ok"
+            func()
+        assert "func" in caplog.text
+
+    def test_debug_level_logs(self, caplog):
+        with caplog.at_level(logging.DEBUG, logger="app.core.aspects"):
+            @aspect_log(level="DEBUG")
+            def func():
+                return "ok"
+            func()
+        assert "func" in caplog.text
+
+    def test_warning_level_logs(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="app.core.aspects"):
+            @aspect_log(level="WARNING")
+            def func():
+                raise RuntimeError("warn")
+            with pytest.raises(RuntimeError):
+                func()
+        assert "func" in caplog.text
+
+    def test_default_level_is_info(self, caplog):
+        with caplog.at_level(logging.INFO, logger="app.core.aspects"):
+            @aspect_log()
+            def func():
+                return 1
+            func()
+        assert len(caplog.records) >= 1
+
+    def test_async_info_level_logs(self, caplog):
+        with caplog.at_level(logging.INFO, logger="app.core.aspects"):
+            @aspect_log(level="INFO")
+            async def async_func():
+                return "ok"
+            run(async_func())
+        assert "async_func" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Composabilité
+# ---------------------------------------------------------------------------
+
+class TestAspectLogComposable:
+    def test_stacks_with_another_aspect_log(self):
+        @aspect_log(level="INFO")
+        @aspect_log(level="DEBUG")
+        def func():
+            return 99
+        assert func() == 99
+
+    def test_no_coupling_with_business_code(self):
+        """aspect_log ne doit importer aucun module métier."""
+        import app.core.aspects as module
+        import inspect
+        src = inspect.getsource(module)
+        assert "application.services" not in src
+        assert "domain.models" not in src
