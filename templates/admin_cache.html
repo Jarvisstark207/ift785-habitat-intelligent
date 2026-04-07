@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin — Cache</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 20px; }
+    h1 { color: #58a6ff; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th { text-align: left; padding: 8px; border-bottom: 1px solid #30363d; color: #8b949e; font-weight: normal; }
+    td { padding: 8px; border-bottom: 1px solid #21262d; font-size: 13px; }
+    tr:hover { background: #161b22; }
+    .key { color: #79c0ff; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ttl { color: #3fb950; }
+    .ttl.low { color: #f85149; }
+    .hit-rate { color: #e3b341; }
+    .bar { background: #21262d; border-radius: 4px; height: 8px; }
+    .bar-fill { background: #388bfd; height: 8px; border-radius: 4px; transition: width .3s; }
+    .controls { margin-bottom: 16px; }
+    button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 14px; border-radius: 6px; cursor: pointer; margin-right: 8px; }
+    button:hover { background: #30363d; }
+    button.danger { border-color: #f85149; }
+    button.danger:hover { background: #f8514933; }
+    #summary { color: #8b949e; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Admin — Visualisation du Cache</h1>
+  <div id="summary">Chargement…</div>
+  <div class="controls">
+    <button onclick="refresh()">Rafraîchir</button>
+    <button class="danger" onclick="invalidateAll()">Tout invalider</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Clé</th>
+        <th>TTL restant (s)</th>
+        <th>Hits</th>
+        <th>Misses</th>
+        <th>Taux hit</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="cache-body"></tbody>
+  </table>
+
+  <script>
+    async function refresh() {
+      const resp = await fetch('/api/cache/stats');
+      const data = await resp.json();
+      const entries = data.entries || {};
+      document.getElementById('summary').textContent =
+        `${data.count} entrée(s) en cache — rafraîchi à ${new Date().toLocaleTimeString()}`;
+      const tbody = document.getElementById('cache-body');
+      tbody.innerHTML = '';
+      Object.entries(entries).forEach(([key, info]) => {
+        const hits = info.hits || 0;
+        const misses = info.misses || 0;
+        const total = hits + misses;
+        const rate = total > 0 ? Math.round(hits / total * 100) : 0;
+        const ttl = info.ttl_remaining || 0;
+        const ttlClass = ttl < 10 ? 'ttl low' : 'ttl';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="key" title="${key}">${key}</td>
+          <td class="${ttlClass}">${ttl.toFixed(1)}</td>
+          <td>${hits}</td>
+          <td>${misses}</td>
+          <td class="hit-rate">
+            ${rate}%
+            <div class="bar"><div class="bar-fill" style="width:${rate}%"></div></div>
+          </td>
+          <td><button onclick="invalidateKey('${key}')">Invalider</button></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function invalidateAll() {
+      await fetch('/api/cache/invalidate', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+      refresh();
+    }
+
+    async function invalidateKey(key) {
+      await fetch('/api/cache/invalidate', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({prefix: key})
+      });
+      refresh();
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>
