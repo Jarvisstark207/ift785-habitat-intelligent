@@ -85,3 +85,27 @@ class EventBus:
         handlers = self._subscribers.get(event_name, [])
         for handler in handlers:
             self._call_handler(handler, event_name, payload)
+
+
+    # ------------------------------------------------------------------
+    # Introspection
+    # ------------------------------------------------------------------
+
+    def subscribers(self, event_name: str) -> List[Callable]:
+        """Retourne la liste des handlers abonnés à *event_name*."""
+        return list(self._subscribers.get(event_name, []))
+
+    def all_subscribers(self) -> Dict[str, List[str]]:
+        """Retourne {event_name: [handler_name, ...]} pour tous les événements."""
+        return {k: [h.__name__ for h in v] for k, v in self._subscribers.items()}
+
+    def get_history(self) -> List[dict]:
+        """Retourne l'historique des événements publiés (les N derniers)."""
+        return list(self._history)
+
+    def clear_history(self) -> None:
+        """Vide l'historique des événements."""
+        self._history.clear()
+
+
+
