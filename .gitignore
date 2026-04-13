@@ -52,7 +52,7 @@ Thumbs.db
 coverage.xml
 htmlcov/
 *.json
-*.html
+#*.html
 
 # SQLite / local data
 *.db
