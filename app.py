@@ -41,6 +41,7 @@ from infrastructure.di.container import build_default_container
 from app.core.provided_auth import get_current_user, require_minimum_role, User
 from application.services.auth_service import AuthService
 from infrastructure.auth.service_locator import build_default_service_locator
+from application.services.health_service import HealthService
 
 # ============================================================================
 # CRÉATION APP
@@ -561,6 +562,56 @@ def get_user_permissions(user_id: str, current_user: User = Depends(get_current_
     if not permissions:
         permissions = current_user.permissions if current_user.id == user_id else []
     return {"user_id": user_id, "permissions": permissions}
+
+
+# ============================================================================
+# ITERATION 10 - Resilience + Circuit Breaker + Health + Metrics
+# ============================================================================
+
+_health_service = HealthService()
+
+
+@app.get("/api/health")
+def health_check():
+    """Statut de sante global (200 = sain, 503 = degrade)."""
+    from fastapi.responses import JSONResponse
+    result = _health_service.check_health()
+    status_code = 200 if result["status"] == "healthy" else 503
+    return JSONResponse(content=result, status_code=status_code)
+
+
+@app.get("/api/readiness")
+def readiness_check():
+    """Indicateur pret/non-pret pour les load balancers."""
+    from fastapi.responses import JSONResponse
+    result = _health_service.check_readiness()
+    status_code = 200 if result["ready"] else 503
+    return JSONResponse(content=result, status_code=status_code)
+
+
+@app.get("/api/metrics")
+def get_metrics():
+    """Metriques operationnelles — requetes, erreurs, latences, circuit breakers."""
+    return _health_service.get_metrics_summary()
+
+
+# Frontend routes (bonus iteration 10)
+@app.get("/monitoring", response_class=HTMLResponse)
+def monitoring_page(request: Request):
+    """Dashboard monitoring Circuit Breakers (Iteration 10 - bonus)"""
+    return templates.TemplateResponse("monitoring.html", {"request": request})
+
+
+@app.get("/monitoring/services", response_class=HTMLResponse)
+def monitoring_services_page(request: Request):
+    """Page services avec metriques de latence (Iteration 10 - bonus)"""
+    return templates.TemplateResponse("monitoring_services.html", {"request": request})
+
+
+@app.get("/admin/infra", response_class=HTMLResponse)
+def admin_infra_page(request: Request):
+    """Page infrastructure Docker (Iteration 10 - bonus)"""
+    return templates.TemplateResponse("admin_infra.html", {"request": request})
 
 
 # Frontend routes (bonus iteration 7)
