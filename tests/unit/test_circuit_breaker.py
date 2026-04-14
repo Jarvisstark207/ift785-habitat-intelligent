@@ -78,3 +78,52 @@ class TestCircuitBreakerInitial:
         cb = CircuitBreaker()
         assert cb._failure_count == 0
 
+
+# ---------------------------------------------------------------------------
+# Transition CLOSED -> OPEN
+# ---------------------------------------------------------------------------
+
+class TestCircuitBreakerOpens:
+    def test_opens_after_threshold(self):
+        cb = CircuitBreaker(failure_threshold=3)
+        for _ in range(3):
+            with pytest.raises(RuntimeError):
+                cb.call(failing)
+        assert cb.state == CircuitBreakerState.OPEN
+
+    def test_opens_after_threshold_v2(self):
+        cb = CircuitBreaker(failure_threshold=3)
+        for _ in range(3):
+            with pytest.raises(Exception):
+                cb.call(lambda: (_ for _ in ()).throw(RuntimeError("fail")))
+        assert cb.state == State.OPEN
+
+    def test_not_open_before_threshold(self):
+        cb = CircuitBreaker(failure_threshold=3)
+        for _ in range(2):
+            with pytest.raises(RuntimeError):
+                cb.call(failing)
+        assert cb.state == CircuitBreakerState.CLOSED
+
+    def test_raises_circuit_open_error_when_open(self):
+        cb = CircuitBreaker(failure_threshold=1)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        assert cb.state == CircuitBreakerState.OPEN
+        with pytest.raises(CircuitOpenError):
+            cb.call(succeeding)
+
+    def test_circuit_open_error_message(self):
+        cb = CircuitBreaker(name="philips", failure_threshold=1)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        with pytest.raises(CircuitOpenError, match="philips"):
+            cb.call(succeeding)
+
+    def test_success_resets_failure_count(self):
+        cb = CircuitBreaker(failure_threshold=3)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        cb.call(succeeding)
+        assert cb._failure_count == 0
+
