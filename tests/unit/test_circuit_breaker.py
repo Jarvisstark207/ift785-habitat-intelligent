@@ -194,3 +194,42 @@ class TestCircuitBreakerForce:
         assert cb._failure_count == 0
         assert cb._total_calls == 0
 
+
+# ---------------------------------------------------------------------------
+# get_stats
+# ---------------------------------------------------------------------------
+
+class TestCircuitBreakerStats:
+    def test_get_stats_keys(self):
+        cb = CircuitBreaker(name="test_cb")
+        stats = cb.get_stats()
+        assert "name" in stats
+        assert "state" in stats
+        assert "failure_count" in stats
+        assert "total_calls" in stats
+
+    def test_stats_state_value(self):
+        cb = CircuitBreaker()
+        assert cb.get_stats()["state"] == "closed"
+
+
+# ---------------------------------------------------------------------------
+# Registry global
+# ---------------------------------------------------------------------------
+
+class TestCircuitBreakerRegistry:
+    def test_get_circuit_breaker_creates(self):
+        cb = get_circuit_breaker("weather_api")
+        assert cb.name == "weather_api"
+
+    def test_get_circuit_breaker_singleton(self):
+        cb1 = get_circuit_breaker("sensor_api")
+        cb2 = get_circuit_breaker("sensor_api")
+        assert cb1 is cb2
+
+    def test_get_all_circuit_breakers(self):
+        get_circuit_breaker("service_a")
+        get_circuit_breaker("service_b")
+        all_cb = get_all_circuit_breakers()
+        assert "service_a" in all_cb
+        assert "service_b" in all_cb
