@@ -127,3 +127,36 @@ class TestCircuitBreakerOpens:
         cb.call(succeeding)
         assert cb._failure_count == 0
 
+
+# ---------------------------------------------------------------------------
+# Transition OPEN -> HALF_OPEN -> CLOSED / OPEN
+# ---------------------------------------------------------------------------
+
+class TestCircuitBreakerHalfOpen:
+    def test_half_open_after_timeout(self):
+        cb = CircuitBreaker(failure_threshold=1, recovery_timeout=0.05)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        assert cb.state == CircuitBreakerState.OPEN
+        time.sleep(0.1)
+        assert cb.state == CircuitBreakerState.HALF_OPEN
+
+    def test_half_open_to_closed_on_success(self):
+        cb = CircuitBreaker(failure_threshold=1, recovery_timeout=0.05)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        time.sleep(0.1)
+        result = cb.call(succeeding)
+        assert result == "ok"
+        assert cb.state == CircuitBreakerState.CLOSED
+
+    def test_half_open_to_open_on_failure(self):
+        cb = CircuitBreaker(failure_threshold=1, recovery_timeout=0.05)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        time.sleep(0.1)
+        assert cb.state == CircuitBreakerState.HALF_OPEN
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        assert cb.state == CircuitBreakerState.OPEN
+
