@@ -160,3 +160,37 @@ class TestCircuitBreakerHalfOpen:
             cb.call(failing)
         assert cb.state == CircuitBreakerState.OPEN
 
+
+# ---------------------------------------------------------------------------
+# force_open / force_closed / reset
+# ---------------------------------------------------------------------------
+
+class TestCircuitBreakerForce:
+    def test_force_open(self):
+        cb = CircuitBreaker()
+        cb.force_open()
+        assert cb.state == CircuitBreakerState.OPEN
+
+    def test_force_open_rejects_calls(self):
+        cb = CircuitBreaker()
+        cb.force_open()
+        with pytest.raises(CircuitOpenError):
+            cb.call(succeeding)
+
+    def test_force_closed(self):
+        cb = CircuitBreaker(failure_threshold=1)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        assert cb.state == CircuitBreakerState.OPEN
+        cb.force_closed()
+        assert cb.state == CircuitBreakerState.CLOSED
+
+    def test_reset(self):
+        cb = CircuitBreaker(failure_threshold=1)
+        with pytest.raises(RuntimeError):
+            cb.call(failing)
+        cb.reset()
+        assert cb.state == CircuitBreakerState.CLOSED
+        assert cb._failure_count == 0
+        assert cb._total_calls == 0
+
