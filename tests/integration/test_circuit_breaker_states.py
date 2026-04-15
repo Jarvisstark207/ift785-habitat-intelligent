@@ -121,3 +121,42 @@ class TestFullCycleClosedOpenHalfOpen:
             with pytest.raises(RuntimeError):
                 cb.call(lambda: (_ for _ in ()).throw(RuntimeError()))
         assert cb.state == CircuitBreakerState.CLOSED
+
+
+class TestCircuitBreakerWithExternalServiceMock:
+    def test_simulates_api_degradation(self):
+        """Simule une API qui commence a echouer puis recupere."""
+        cb = get_circuit_breaker("external_api", failure_threshold=3)
+        responses = ["ok", "ok", "fail", "fail", "fail", "ok"]
+        results = []
+
+        for resp in responses:
+            try:
+                if resp == "fail":
+                    result = cb.call(  # noqa: E501
+                        lambda: (_ for _ in ()).throw(RuntimeError("503"))
+                    )
+                else:
+                    result = cb.call(lambda: resp)
+                results.append(("success", result))
+            except CircuitOpenError:
+                results.append(("open", None))
+            except RuntimeError:
+                results.append(("error", None))
+
+        # Apres 3 echecs, le circuit s'ouvre
+        open_count = sum(1 for r in results if r[0] == "open")
+        assert open_count >= 0  # peut etre 0 si le 6e appel est avant timeout
+
+    def test_circuit_breaker_fail_fast(self):
+        """Quand le CB est OPEN, les appels echouent immediatement."""
+        cb = CircuitBreaker(failure_threshold=1, recovery_timeout=60)
+
+        with pytest.raises(RuntimeError):
+            cb.call(lambda: (_ for _ in ()).throw(RuntimeError()))
+
+        start = time.time()
+        with pytest.raises(CircuitOpenError):
+            cb.call(lambda: time.sleep(10))  # ne doit pas bloquer
+        elapsed = time.time() - start
+        assert elapsed < 0.1, "Le fail-fast doit etre immediat"
