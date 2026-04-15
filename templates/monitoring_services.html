@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Services — Monitoring</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+        nav { background: #1a1d2e; padding: 1rem 2rem; display: flex; align-items: center; gap: 2rem; border-bottom: 1px solid #2d3050; }
+        nav a { color: #7c83fd; text-decoration: none; font-size: 0.9rem; }
+        nav .brand { font-weight: bold; font-size: 1.1rem; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { font-size: 1.8rem; margin-bottom: 0.4rem; }
+        .subtitle { color: #888; margin-bottom: 2rem; }
+        table { width: 100%; border-collapse: collapse; background: #1a1d2e; border-radius: 12px; overflow: hidden; }
+        thead { background: #12141f; }
+        th { padding: 1rem; text-align: left; font-size: 0.8rem; text-transform: uppercase; color: #888; letter-spacing: 0.05em; }
+        td { padding: 1rem; border-bottom: 1px solid #2d3050; font-size: 0.95rem; }
+        tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+        .badge.closed { background: #14532d; color: #22c55e; }
+        .badge.open { background: #450a0a; color: #ef4444; }
+        .badge.half_open { background: #451a03; color: #f59e0b; }
+        .bar-wrap { background: #12141f; border-radius: 4px; height: 8px; width: 100px; }
+        .bar { height: 8px; border-radius: 4px; background: #7c83fd; }
+        .refresh-btn { background: #2d3050; color: #7c83fd; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <span class="brand">Habitat Intelligent</span>
+        <a href="/">Accueil</a>
+        <a href="/monitoring">Monitoring</a>
+        <a href="/monitoring/services">Services</a>
+        <a href="/admin/infra">Infrastructure</a>
+    </nav>
+
+    <div class="container">
+        <h1>Etat des services externes</h1>
+        <p class="subtitle">Latences et etat de chaque circuit breaker</p>
+        <button class="refresh-btn" onclick="loadData()">Rafraichir</button>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Etat circuit</th>
+                    <th>Echecs</th>
+                    <th>Appels totaux</th>
+                    <th>Succes</th>
+                </tr>
+            </thead>
+            <tbody id="tb">
+                <tr><td colspan="5" style="color:#555;font-style:italic">Chargement...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadData() {
+            const res = await fetch('/api/metrics');
+            const data = await res.json();
+            const cbs = data.circuit_breakers || [];
+            const tb = document.getElementById('tb');
+            if (cbs.length === 0) {
+                tb.innerHTML = '<tr><td colspan="5" style="color:#555;font-style:italic">Aucun circuit breaker enregistre.</td></tr>';
+                return;
+            }
+            tb.innerHTML = cbs.map(cb => {
+                const total = cb.total_calls || 0;
+                const success = total - (cb.failure_count || 0);
+                const pct = total > 0 ? Math.max(0, Math.round(success / total * 100)) : 100;
+                return `<tr>
+                    <td>${cb.name}</td>
+                    <td><span class="badge ${cb.state}">${cb.state.toUpperCase()}</span></td>
+                    <td>${cb.failure_count}</td>
+                    <td>${total}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:0.5rem">
+                            <div class="bar-wrap"><div class="bar" style="width:${pct}%"></div></div>
+                            <span>${pct}%</span>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+        loadData();
+        setInterval(loadData, 10000);
+    </script>
+</body>
+</html>
