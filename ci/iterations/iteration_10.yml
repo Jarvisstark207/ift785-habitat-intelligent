@@ -34,7 +34,7 @@ functionality:
       checks:
         - "Dockerfile existe"
         - "Image de base officielle Python"
-        - ".dockerignore présent"
+        - ".dockerignore present"
         - "Image buildable sans erreur"
 
     - name: "docker-compose.yml complet"
@@ -48,7 +48,7 @@ functionality:
         - name: "nginx"
           image_prefix: "nginx"
       required_features:
-        - "volumes nommés"
+        - "volumes nommes"
         - "depends_on avec condition"
         - "healthcheck par service"
         - "env_file ou environment"

@@ -602,7 +602,7 @@ class CodeEvaluator:
                 ["pytest", path, "--collect-only", "-q"],
                 capture_output=True, text=True, timeout=30
             )
-            m = re.search(r"(\d+)\s+test", r.stdout)
+            m = re.search(r"(\d+)\s+tests?\s+collected", r.stdout)
             return int(m.group(1)) if m else 0
         except Exception:
             return 0
