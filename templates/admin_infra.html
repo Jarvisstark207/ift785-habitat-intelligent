@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrastructure — Admin</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+        nav { background: #1a1d2e; padding: 1rem 2rem; display: flex; align-items: center; gap: 2rem; border-bottom: 1px solid #2d3050; }
+        nav a { color: #7c83fd; text-decoration: none; font-size: 0.9rem; }
+        nav .brand { font-weight: bold; font-size: 1.1rem; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { font-size: 1.8rem; margin-bottom: 0.4rem; }
+        .subtitle { color: #888; margin-bottom: 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: #1a1d2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #2d3050; }
+        .card h2 { font-size: 0.85rem; color: #aaa; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .service-row { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid #2d3050; }
+        .service-row:last-child { border-bottom: none; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot.up { background: #22c55e; }
+        .dot.down { background: #ef4444; }
+        .dot.unknown { background: #888; }
+        .service-name { flex: 1; font-size: 0.95rem; }
+        .service-status { font-size: 0.8rem; color: #888; }
+        .docker-service { background: #12141f; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; border-left: 3px solid #2d3050; }
+        .docker-service.running { border-left-color: #22c55e; }
+        .docker-service.stopped { border-left-color: #ef4444; }
+        .docker-service-name { font-weight: 600; margin-bottom: 0.25rem; }
+        .docker-service-meta { font-size: 0.8rem; color: #888; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .info-item { padding: 0.5rem; background: #12141f; border-radius: 6px; }
+        .info-label { font-size: 0.75rem; color: #888; }
+        .info-value { font-size: 0.9rem; font-weight: 600; margin-top: 0.25rem; }
+        .code { font-family: monospace; background: #12141f; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.85rem; color: #7c83fd; margin-top: 0.5rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <span class="brand">Habitat Intelligent</span>
+        <a href="/">Accueil</a>
+        <a href="/monitoring">Monitoring</a>
+        <a href="/monitoring/services">Services</a>
+        <a href="/admin/infra">Infrastructure</a>
+    </nav>
+
+    <div class="container">
+        <h1>Infrastructure</h1>
+        <p class="subtitle">Statut des conteneurs Docker et services applicatifs</p>
+
+        <div class="grid">
+            <!-- Services Docker (statiques / descriptifs) -->
+            <div class="card">
+                <h2>Conteneurs Docker</h2>
+                <div class="docker-service running">
+                    <div class="docker-service-name">backend (FastAPI)</div>
+                    <div class="docker-service-meta">Image: python:3.12-slim &bull; Port: 8000</div>
+                </div>
+                <div class="docker-service running">
+                    <div class="docker-service-name">db (PostgreSQL)</div>
+                    <div class="docker-service-meta">Image: postgres:16 &bull; Port: 5432</div>
+                </div>
+                <div class="docker-service running">
+                    <div class="docker-service-name">nginx (Reverse proxy)</div>
+                    <div class="docker-service-meta">Image: nginx:alpine &bull; Port: 80</div>
+                </div>
+            </div>
+
+            <!-- Sante des services API -->
+            <div class="card">
+                <h2>Sante API</h2>
+                <div id="api-health">
+                    <div class="service-row">
+                        <div class="dot unknown"></div>
+                        <span class="service-name">Chargement...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Infos systeme -->
+            <div class="card">
+                <h2>Informations systeme</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Uptime</div>
+                        <div class="info-value" id="sys-uptime">—</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Requetes totales</div>
+                        <div class="info-value" id="sys-req">—</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Taux d'erreur</div>
+                        <div class="info-value" id="sys-err">—</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Circuits ouverts</div>
+                        <div class="info-value" id="sys-cb">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commande de demarrage -->
+        <div class="card">
+            <h2>Demarrage de la stack</h2>
+            <p style="color:#aaa;margin-bottom:0.5rem;font-size:0.9rem">
+                La stack complete se lance en une seule commande :
+            </p>
+            <div class="code">docker compose up --build -d</div>
+            <p style="color:#555;font-size:0.8rem;margin-top:0.75rem">
+                Prerequis : copier <strong>.env.example</strong> en <strong>.env</strong> et remplir les secrets avant de lancer.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                const [healthRes, metricsRes] = await Promise.all([
+                    fetch('/api/health'),
+                    fetch('/api/metrics'),
+                ]);
+                const health = await healthRes.json();
+                const metrics = await metricsRes.json();
+
+                // API Health
+                const svcs = health.services || {};
+                const apiHealth = document.getElementById('api-health');
+                let html = '';
+                for (const [name, info] of Object.entries(svcs)) {
+                    if (name === 'circuit_breakers') continue;
+                    const ok = info.healthy !== false;
+                    html += `<div class="service-row">
+                        <div class="dot ${ok ? 'up' : 'down'}"></div>
+                        <span class="service-name">${name}</span>
+                        <span class="service-status">${info.state || (ok ? 'up' : 'down')}</span>
+                    </div>`;
+                }
+                // Circuit breakers summary
+                const cbStatuses = svcs.circuit_breakers || {};
+                for (const [name, info] of Object.entries(cbStatuses)) {
+                    const ok = info.healthy !== false;
+                    html += `<div class="service-row">
+                        <div class="dot ${ok ? 'up' : 'down'}"></div>
+                        <span class="service-name">CB: ${name}</span>
+                        <span class="service-status">${info.state}</span>
+                    </div>`;
+                }
+                apiHealth.innerHTML = html || '<div class="service-row"><span style="color:#555">Aucun service.</span></div>';
+
+                // Systeme
+                document.getElementById('sys-uptime').textContent = formatUptime(metrics.uptime_seconds || 0);
+                document.getElementById('sys-req').textContent = metrics.requests_total || 0;
+                document.getElementById('sys-err').textContent = ((metrics.error_rate || 0) * 100).toFixed(2) + '%';
+                document.getElementById('sys-cb').textContent = metrics.open_circuits || 0;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function formatUptime(s) {
+            const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+            return h > 0 ? `${h}h ${m}m` : `${m}m`;
+        }
+
+        loadData();
+        setInterval(loadData, 15000);
+    </script>
+</body>
+</html>
