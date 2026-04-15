@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring — Habitat Intelligent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+        nav { background: #1a1d2e; padding: 1rem 2rem; display: flex; align-items: center; gap: 2rem; border-bottom: 1px solid #2d3050; }
+        nav a { color: #7c83fd; text-decoration: none; font-size: 0.9rem; }
+        nav a:hover { color: #fff; }
+        nav .brand { font-weight: bold; font-size: 1.1rem; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        h1 { font-size: 1.8rem; margin-bottom: 0.4rem; }
+        .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.95rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: #1a1d2e; border-radius: 12px; padding: 1.5rem; border: 1px solid #2d3050; }
+        .card h2 { font-size: 1rem; color: #aaa; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .metric { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #2d3050; }
+        .metric:last-child { border-bottom: none; }
+        .metric-label { color: #aaa; font-size: 0.9rem; }
+        .metric-value { font-weight: bold; font-size: 1.1rem; }
+        .cb-grid { display: grid; gap: 1rem; }
+        .cb-item { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #12141f; border-radius: 8px; border: 1px solid #2d3050; }
+        .cb-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+        .cb-dot.closed { background: #22c55e; box-shadow: 0 0 8px #22c55e44; }
+        .cb-dot.open { background: #ef4444; box-shadow: 0 0 8px #ef444444; }
+        .cb-dot.half_open { background: #f59e0b; box-shadow: 0 0 8px #f59e0b44; }
+        .cb-name { font-weight: 600; flex: 1; }
+        .cb-state { font-size: 0.85rem; padding: 0.2rem 0.6rem; border-radius: 4px; }
+        .cb-state.closed { background: #14532d; color: #22c55e; }
+        .cb-state.open { background: #450a0a; color: #ef4444; }
+        .cb-state.half_open { background: #451a03; color: #f59e0b; }
+        .cb-failures { font-size: 0.85rem; color: #888; }
+        .status-banner { padding: 1rem 1.5rem; border-radius: 8px; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; }
+        .status-banner.healthy { background: #14532d44; border: 1px solid #22c55e55; }
+        .status-banner.degraded { background: #450a0a44; border: 1px solid #ef444455; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; animation: pulse 2s infinite; }
+        .status-dot.healthy { background: #22c55e; }
+        .status-dot.degraded { background: #ef4444; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .refresh-btn { margin-left: auto; background: #2d3050; color: #7c83fd; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+        .refresh-btn:hover { background: #3d4070; }
+        .empty-msg { color: #555; font-style: italic; padding: 1rem 0; }
+        a.nav-link-active { color: #fff; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <nav>
+        <span class="brand">Habitat Intelligent</span>
+        <a href="/">Accueil</a>
+        <a href="/monitoring" class="nav-link-active">Monitoring</a>
+        <a href="/monitoring/services">Services</a>
+        <a href="/admin/infra">Infrastructure</a>
+        <a href="/devices">Devices</a>
+    </nav>
+
+    <div class="container">
+        <h1>Tableau de bord — Monitoring</h1>
+        <p class="subtitle">Etat en temps reel des circuit breakers et des metriques operationnelles</p>
+
+        <div id="status-banner" class="status-banner healthy">
+            <div id="status-dot" class="status-dot healthy"></div>
+            <strong id="status-text">Chargement...</strong>
+            <button class="refresh-btn" onclick="loadData()">Rafraichir</button>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Metriques</h2>
+                <div class="metric">
+                    <span class="metric-label">Requetes totales</span>
+                    <span class="metric-value" id="req-total">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Taux d'erreur</span>
+                    <span class="metric-value" id="error-rate">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Latence p50</span>
+                    <span class="metric-value" id="lat-p50">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Latence p95</span>
+                    <span class="metric-value" id="lat-p95">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Circuits ouverts</span>
+                    <span class="metric-value" id="open-circuits">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Uptime</span>
+                    <span class="metric-value" id="uptime">—</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Sante des services</h2>
+                <div id="services-list">
+                    <p class="empty-msg">Chargement...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Circuit Breakers</h2>
+            <div id="cb-list">
+                <p class="empty-msg">Aucun circuit breaker enregistre.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                const [healthRes, metricsRes] = await Promise.all([
+                    fetch('/api/health'),
+                    fetch('/api/metrics'),
+                ]);
+                const health = await healthRes.json();
+                const metrics = await metricsRes.json();
+
+                // Banner
+                const banner = document.getElementById('status-banner');
+                const dot = document.getElementById('status-dot');
+                const text = document.getElementById('status-text');
+                banner.className = 'status-banner ' + health.status;
+                dot.className = 'status-dot ' + health.status;
+                text.textContent = health.status === 'healthy'
+                    ? 'Systeme sain — tous les services operationnels'
+                    : 'Systeme degrade — un ou plusieurs circuits ouverts';
+
+                // Metrics
+                document.getElementById('req-total').textContent = metrics.requests_total ?? 0;
+                document.getElementById('error-rate').textContent = ((metrics.error_rate ?? 0) * 100).toFixed(2) + '%';
+                document.getElementById('lat-p50').textContent = (metrics.latency_p50_ms ?? 0) + ' ms';
+                document.getElementById('lat-p95').textContent = (metrics.latency_p95_ms ?? 0) + ' ms';
+                document.getElementById('open-circuits').textContent = metrics.open_circuits ?? 0;
+                document.getElementById('uptime').textContent = formatUptime(metrics.uptime_seconds ?? 0);
+
+                // Services
+                const svcs = health.services || {};
+                const svcsList = document.getElementById('services-list');
+                let html = '';
+                for (const [name, info] of Object.entries(svcs)) {
+                    if (name === 'circuit_breakers') continue;
+                    const ok = info.healthy !== false;
+                    const state = info.state || (ok ? 'up' : 'down');
+                    html += `<div class="metric">
+                        <span class="metric-label">${name}</span>
+                        <span class="metric-value" style="color:${ok ? '#22c55e' : '#ef4444'}">${state}</span>
+                    </div>`;
+                }
+                svcsList.innerHTML = html || '<p class="empty-msg">Aucun service.</p>';
+
+                // Circuit Breakers
+                const cbs = metrics.circuit_breakers || [];
+                const cbList = document.getElementById('cb-list');
+                if (cbs.length === 0) {
+                    cbList.innerHTML = '<p class="empty-msg">Aucun circuit breaker enregistre.</p>';
+                } else {
+                    cbList.innerHTML = '<div class="cb-grid">' + cbs.map(cb => `
+                        <div class="cb-item">
+                            <div class="cb-dot ${cb.state}"></div>
+                            <span class="cb-name">${cb.name}</span>
+                            <span class="cb-failures">${cb.failure_count} echec(s)</span>
+                            <span class="cb-state ${cb.state}">${cb.state.toUpperCase()}</span>
+                        </div>
+                    `).join('') + '</div>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function formatUptime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+        }
+
+        loadData();
+        setInterval(loadData, 10000);
+    </script>
+</body>
+</html>
