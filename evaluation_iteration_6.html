@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>IFT785 — Itération 6</title>
+  <style>
+    body  { font-family: 'Segoe UI', sans-serif; max-width: 960px;
+             margin: 40px auto; padding: 20px; background: #f4f6f8; }
+    .hdr  { background: linear-gradient(135deg,#667eea,#764ba2);
+             color:#fff; padding:28px; border-radius:12px; margin-bottom:24px; }
+    .hdr h1 { margin:0; font-size:26px; }
+    .hdr p  { margin:6px 0 0; opacity:.85; }
+    .score  { font-size:72px; font-weight:900; color:#2e7d32;
+               text-align:center; margin:20px 0; }
+    .card   { background:#fff; border-radius:10px; padding:22px;
+               box-shadow:0 2px 6px rgba(0,0,0,.08); margin-bottom:18px; }
+    .card h2 { margin-top:0; color:#444; }
+    .row { padding:8px 12px; margin:5px 0; border-left:4px solid #ccc;
+             border-radius:4px; font-family:monospace; font-size:13px; }
+    .ok   { border-color:#43a047; background:#f1f8e9; }
+    .warn { border-color:#fb8c00; background:#fff8e1; }
+    .fail { border-color:#e53935; background:#ffebee; }
+    .bonus{ border-color:#8e24aa; background:#f3e5f5; }
+    .info { border-color:#1e88e5; background:#e3f2fd; font-weight:bold; }
+    .contributor { padding:8px 0; border-bottom:1px solid #eee; }
+    .bal  { display:inline-block; padding:4px 14px; border-radius:20px;
+             background:#43a047;
+             color:#fff; margin-top:10px; font-size:13px; }
+    .scores { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .sc   { background:#f8f9fa; border-left:4px solid #667eea;
+             padding:14px; border-radius:6px; }
+    .sc b { display:block; color:#555; font-size:12px; text-transform:uppercase; }
+    .sc span { font-size:24px; color:#667eea; font-weight:700; }
+  </style>
+</head>
+<body>
+  <div class="hdr">
+    <h1>IFT785 — Itération 6: Repository Pattern + DI + Unit of Work</h1>
+    <p>Évaluation du 2026-03-18</p>
+  </div>
+
+  <div class="score">100.0/100</div>
+
+  <div class="card">
+    <h2>Résultats par critère</h2>
+    <div class="scores">
+      <div class="sc"><b>Fonctionnalité</b>
+        <span>40.0/40</span></div>
+      <div class="sc"><b>Tests</b>
+        <span>30.0/30</span></div>
+      <div class="sc"><b>Qualité Code</b>
+        <span>20.0/20</span></div>
+      <div class="sc"><b>Git</b>
+        <span>10.0/10</span></div>
+    </div>
+    
+  </div>
+
+  <div class="card">
+    <h2>Équipe</h2>
+    <div class="contributor"><b>tram8062</b> (tram8062@usherbrooke.ca) — 71 commits (44.1%) — 7835 lignes</div>
+<div class="contributor"><b>Mouhamadou Mourtala MBOW</b> (mbom5234@usherbrooke.ca) — 90 commits (55.9%) — 11862 lignes</div>
+
+    <span class="bal">Contribution: Équilibrée</span>
+  </div>
+
+  <div class="card">
+    <h2>Détails</h2>
+    <div class="row ok">[OK] Application demarre (8/8)</div>
+<div class="row ok">[OK] SQLite avec SQLAlchemy structure (10/10)</div>
+<div class="row ok">[OK] Gestion transactions batch: 2/2 endpoints (12/12)</div>
+<div class="row ok">[OK] Patterns Repository + DI: ['Repository', 'UnitOfWork', 'DependencyInjection'] (10/10)</div>
+<div class="row info">→ Fonctionnalité: 40/40 pts bruts → 40.0/40</div>
+<div class="row ok">[OK] Tests/unit fichiers: 3/3</div>
+<div class="row ok">[OK] Tests/unit: 100/30 tests</div>
+<div class="row ok">[OK] Tests/integration fichiers: 2/2</div>
+<div class="row ok">[OK] Tests/integration: 96/18 tests</div>
+<div class="row ok">[OK] Tests/api fichiers: 1/1</div>
+<div class="row ok">[OK] Tests/api: 200/7 tests</div>
+<div class="row ok">[OK] Couverture 83.2% >= 82% (9.0/9.0)</div>
+<div class="row info">→ Tests: 30.0/30</div>
+<div class="row ok">[OK] Flake8: 0 erreur (10.0/10.0)</div>
+<div class="row ok">[OK] Complexité acceptable (10.0/10.0)</div>
+<div class="row info">→ Qualité: 20.0/20</div>
+<div class="row ok">[OK] Commits minimum atteints par tous (4.0/4.0)</div>
+<div class="row ok">[OK] Contribution équilibrée (3.0/3.0)</div>
+<div class="row ok">[OK] Commits conventionnels: 82% (3.0/3.0)</div>
+<div class="row info">→ Git: 10.0/10</div>
+<div class="row ok">[OK] [BONUS] Page Gestion Devices (CRUD visuel): 2/2 URLs (5/5)</div>
+<div class="row ok">[OK] [BONUS] Interface import batch avec feedback: 1/1 URLs (5/5)</div>
+<div class="row bonus">
+--- BONUS (10.0 pts bruts, 0.0 pts appliqués — plafond 100) ---</div>
+
+  </div>
+</body>
+</html>
